@@ -1,17 +1,47 @@
 # Apple Notes backup
 
-This setup creates versioned ZIP archives of the local Apple Notes data folder and stores them in Google Drive. It checks once a day and after login, but only creates an archive when the newest successful backup is at least 30 days old.
+This setup creates versioned ZIP archives of the local Apple Notes data folder and stores them in a destination you choose. It checks once a day and after login, but only creates an archive when the newest successful backup is at least 30 days old.
 
-This repository contains one working personal configuration. Before installing it on another Mac, update the username-specific paths in `com.roman.apple-notes-backup.plist` and choose a backup destination. The script also accepts `NOTES_DIR`, `BACKUP_DIR`, and `MAX_BACKUP_AGE_DAYS` environment variables, so the defaults can be overridden without editing it.
+By default, archives go to `~/Backups/Apple Notes`. Set `BACKUP_DIR` when installing or running the script to use another local or cloud-synced folder. The script also accepts `NOTES_DIR` and `MAX_BACKUP_AGE_DAYS` environment variables.
+
+## Choose a backup destination
+
+The default destination is stored on the same Mac as the Notes database. It can help with accidental changes to Notes, but it does not protect against loss, theft, or failure of the Mac's storage. For better protection, use a folder that is copied off the Mac—for example, a locally synced Google Drive, Dropbox, OneDrive, or iCloud Drive folder—or include the destination in another backup system such as Time Machine.
+
+`BACKUP_DIR` is the local filesystem path where this script writes the archives. To use cloud storage, create a folder inside the provider's synced folder and pass that local path to the installer. On current macOS versions, many providers appear under `~/Library/CloudStorage`; the exact path depends on the provider and account. For example:
+
+```sh
+BACKUP_DIR="$HOME/Library/CloudStorage/Dropbox/Backups/Apple Notes" \
+  ./scripts/install-launchagent.sh
+```
+
+Use the actual path shown on your Mac rather than copying the example unchanged. One easy way to get it is to drag the destination folder from Finder into Terminal. Confirm that the provider keeps the folder available locally and that a test archive finishes syncing to another device or the provider's website. The script verifies the local ZIP and checksum, but it cannot verify that the cloud provider completed its remote upload. Cloud sync also should not be the only copy when stronger protection is needed, because deletions or corruption can sync too.
+
+## Install
+
+Clone this repository, then run:
+
+```sh
+./scripts/install-launchagent.sh
+```
+
+To choose another destination:
+
+```sh
+BACKUP_DIR="$HOME/path/to/your/backup-folder" ./scripts/install-launchagent.sh
+```
+
+The installer creates the destination if needed, generates a LaunchAgent with paths for the current Mac, loads it, and reads back its status.
 
 ## Files and locations
 
 - Backup script: `scripts/backup-apple-notes.sh`
-- LaunchAgent source: `com.roman.apple-notes-backup.plist`
-- Installed LaunchAgent: `~/Library/LaunchAgents/com.roman.apple-notes-backup.plist`
+- LaunchAgent template: `io.github.apple-notes-backup.plist`
+- LaunchAgent installer: `scripts/install-launchagent.sh`
+- Installed LaunchAgent: `~/Library/LaunchAgents/io.github.apple-notes-backup.plist`
 - Notes source: `~/Library/Group Containers/group.com.apple.notes`
-- Archive destination: `~/My Drive/2Roman/backup`
-- Backup log: `~/My Drive/2Roman/backup/apple-notes-backup.log`
+- Default archive destination: `~/Backups/Apple Notes`
+- Backup log: `~/Backups/Apple Notes/apple-notes-backup.log`
 - Fallback log when the backup folder is unavailable: `~/Library/Logs/apple-notes-backup.log`
 - LaunchAgent output: `~/Library/Logs/apple-notes-backup-launchd.log`
 
@@ -23,11 +53,11 @@ The background job runs at login and approximately once every 24 hours. The ligh
 
 When a backup is due, the script:
 
-1. Confirms the Notes source and Google Drive destination are available.
+1. Confirms the Notes source and backup destination are available.
 2. Records whether Notes is open and, if so, quits it cleanly.
 3. Creates the ZIP in a local temporary staging directory.
 4. Tests every entry in the new ZIP with `unzip -t`.
-5. Moves the completed archive into Google Drive and writes its SHA-256 checksum to an adjacent `.sha256` file.
+5. Moves the completed archive into the destination and writes its SHA-256 checksum to an adjacent `.sha256` file.
 6. Randomly chooses an older archive, recalculates its SHA-256 hash, and compares it with the stored checksum. If there is no older archive, it verifies the new one.
 7. Tests the randomly selected archive with `unzip -t` after its checksum matches.
 8. Records the new archive's size and SHA-256 checksum in the log.
@@ -39,7 +69,7 @@ The ZIP test confirms that every archived entry can be decompressed. The checksu
 
 The job cannot run while the Mac is shut down. Because it runs at login and checks daily rather than relying on one monthly calendar event, it catches up after the next login or wake. It still needs the user to be logged in.
 
-If the Google Drive backup destination is unavailable, the error is recorded in the local fallback log and a macOS notification shows the specific unavailable path. Other activity is recorded in the backup log beside the archives. No incomplete archive is placed in the backup folder after a failure. The next daily check tries again because it will still consider the backup stale.
+If the backup destination is unavailable, the error is recorded in the local fallback log and a macOS notification shows the specific unavailable path. Other activity is recorded in the backup log beside the archives. No incomplete archive is placed in the backup folder after a failure. The next daily check tries again because it will still consider the backup stale.
 
 ## Permissions
 
@@ -62,10 +92,10 @@ Run only the lightweight age check:
 Inspect recent activity:
 
 ```sh
-tail -50 "$HOME/My Drive/2Roman/backup/apple-notes-backup.log"
+tail -50 "$HOME/Backups/Apple Notes/apple-notes-backup.log"
 ```
 
-If Google Drive was unavailable, inspect the fallback and LaunchAgent logs:
+If the destination was unavailable, inspect the fallback and LaunchAgent logs:
 
 ```sh
 tail -50 ~/Library/Logs/apple-notes-backup.log
@@ -75,14 +105,14 @@ tail -50 ~/Library/Logs/apple-notes-backup-launchd.log
 Inspect the installed service:
 
 ```sh
-launchctl print gui/$(id -u)/com.roman.apple-notes-backup
+launchctl print gui/$(id -u)/io.github.apple-notes-backup
 ```
 
 ## Restoring a backup
 
 Restoring this archive replaces the complete local Notes database; it is not a selective one-note import. Database formats can change between macOS releases, and reconnecting an older database to iCloud can merge or overwrite data in ways that are difficult to predict. The safest use is to open the restored database while offline, recover the notes you need, and then return to the current database.
 
-Before starting, make sure the chosen ZIP is fully downloaded from Google Drive rather than only represented by a cloud placeholder. Give Terminal Full Disk Access, just as `/bin/bash` has for the backup job.
+Before starting, make sure the chosen ZIP is fully available locally rather than only represented by a cloud placeholder. Give Terminal Full Disk Access, just as `/bin/bash` has for the backup job.
 
 ### Recovery-first procedure
 
@@ -90,13 +120,13 @@ Before starting, make sure the chosen ZIP is fully downloaded from Google Drive 
 2. Disable the automatic backup job temporarily:
 
    ```sh
-   launchctl bootout gui/$(id -u)/com.roman.apple-notes-backup
+   launchctl bootout gui/$(id -u)/io.github.apple-notes-backup
    ```
 
 3. Set the archive you want to restore and verify it:
 
    ```sh
-   RESTORE_ARCHIVE="$HOME/My Drive/2Roman/backup/apple-notes-2026-07-10.zip"
+   RESTORE_ARCHIVE="$HOME/Backups/Apple Notes/apple-notes-2026-07-10.zip"
    cd "$(dirname "$RESTORE_ARCHIVE")"
    shasum -a 256 -c "$(basename "$RESTORE_ARCHIVE").sha256"
    unzip -t "$RESTORE_ARCHIVE"
@@ -151,19 +181,19 @@ After the current database is back and Notes looks correct, reconnect the networ
 
 ```sh
 launchctl bootstrap gui/$(id -u) \
-  "$HOME/Library/LaunchAgents/com.roman.apple-notes-backup.plist"
+  "$HOME/Library/LaunchAgents/io.github.apple-notes-backup.plist"
 ```
 
 Keep both Desktop safety folders until Notes has synchronized normally and the recovered material is safely stored. A full permanent rollback should begin with an additional fresh backup and is best handled as a supervised recovery rather than by reconnecting the old database directly.
 
 ## Reload or uninstall
 
-After changing the plist, copy it into `~/Library/LaunchAgents`, then unload and bootstrap it again.
+After changing the template or installer, rerun `./scripts/install-launchagent.sh` to regenerate and reload the installed job.
 
 To disable the job:
 
 ```sh
-launchctl bootout gui/$(id -u)/com.roman.apple-notes-backup
+launchctl bootout gui/$(id -u)/io.github.apple-notes-backup
 ```
 
 The existing ZIP archives are not removed when the job is disabled.

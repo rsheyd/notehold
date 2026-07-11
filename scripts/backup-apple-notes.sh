@@ -3,12 +3,12 @@
 set -eu
 
 readonly NOTES_DIR="${NOTES_DIR:-$HOME/Library/Group Containers/group.com.apple.notes}"
-readonly BACKUP_DIR="${BACKUP_DIR:-$HOME/My Drive/2Roman/backup}"
+readonly BACKUP_DIR="${BACKUP_DIR:-$HOME/Backups/Apple Notes}"
 readonly FALLBACK_LOG_DIR="$HOME/Library/Logs"
 readonly FALLBACK_LOG_FILE="$FALLBACK_LOG_DIR/apple-notes-backup.log"
 readonly BACKUP_LOG_FILE="$BACKUP_DIR/apple-notes-backup.log"
-readonly LOCK_DIR="${TMPDIR:-/tmp}/com.roman.apple-notes-backup.lock"
-readonly STAGING_DIR="${TMPDIR:-/tmp}/com.roman.apple-notes-backup-staging"
+readonly LOCK_DIR="${TMPDIR:-/tmp}/io.github.apple-notes-backup.lock"
+readonly STAGING_DIR="${TMPDIR:-/tmp}/io.github.apple-notes-backup-staging"
 readonly MAX_BACKUP_AGE_DAYS="${MAX_BACKUP_AGE_DAYS:-30}"
 
 mkdir -p "$FALLBACK_LOG_DIR"
@@ -55,7 +55,7 @@ if ! /bin/mkdir "$LOCK_DIR" 2>/dev/null; then
 fi
 
 if [ ! -d "$BACKUP_DIR" ]; then
-  log "ERROR: Google Drive backup folder is unavailable: $BACKUP_DIR"
+  log "ERROR: backup destination is unavailable: $BACKUP_DIR"
   /usr/bin/osascript \
     -e 'on run argv' \
     -e 'display notification ("Backup destination unavailable: " & item 1 of argv) with title "Apple Notes backup failed"' \
