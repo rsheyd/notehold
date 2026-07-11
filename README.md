@@ -1,8 +1,10 @@
 # Apple Notes backup
 
-This setup creates versioned ZIP archives of the local Apple Notes data folder and stores them in a destination you choose. It checks once a day and after login, but only creates an archive when the newest successful backup is at least 30 days old.
+This setup creates versioned ZIP archives of the local Apple Notes data folder and stores them in a destination you choose. It checks once a day and after login, but only creates an archive when the newest successful backup is at least 10 days old.
 
 By default, archives go to `~/Backups/Apple Notes`. Set `BACKUP_DIR` when installing or running the script to use another local or cloud-synced folder. The script also accepts `NOTES_DIR` and `MAX_BACKUP_AGE_DAYS` environment variables.
+
+The project intentionally uses ordinary dated ZIP files instead of a specialized snapshot repository. ZIPs work predictably in cloud-synced folders, remain inspectable without this project, and do not require a repository password or special restore tool.
 
 ## Choose a backup destination
 
@@ -33,6 +35,26 @@ BACKUP_DIR="$HOME/path/to/your/backup-folder" ./scripts/install-launchagent.sh
 
 The installer creates the destination if needed, generates a LaunchAgent with paths for the current Mac, loads it, and reads back its status.
 
+### Optional automatic cleanup
+
+Archives are never removed by default. To opt into automatically moving redundant archives to the Mac Trash when installing:
+
+```sh
+AUTO_CLEANUP=true BACKUP_DIR="$HOME/path/to/your/backup-folder" \
+  ./scripts/install-launchagent.sh
+```
+
+Automatic cleanup runs only after a new archive has passed all backup and integrity checks. It always protects the newest archive, then keeps the valid archive/checksum pairs nearest approximately 10, 20, 30, 90, 180, and 365 days old. Because the Mac may be asleep or the destination unavailable on a target date, these are approximate recovery points rather than exact guarantees. Immediately after a backup, cleanup normally keeps at most seven valid pairs: the new archive plus six historical points.
+
+This option asks Finder to move redundant ZIP and checksum pairs to the Mac Trash. It never falls back to permanent deletion. The files remain recoverable until Trash is emptied, but removing them from a cloud-synced destination will normally sync that removal to the cloud provider. Finder may ask for permission the first time cleanup runs. Before enabling it, preview the policy against your existing archives:
+
+```sh
+BACKUP_DIR="$HOME/path/to/your/backup-folder" \
+  ./scripts/backup-apple-notes.sh --retention-preview
+```
+
+Incomplete pairs, invalid checksum metadata, the newest archive, and any archive that fails checksum verification immediately before cleanup are never moved. Every decision is logged. After one or more pairs are moved to Trash, macOS shows a single summary notification; the log contains the complete filenames. If Finder refuses the move or only part of a pair moves, cleanup reports an error and requires manual attention rather than permanently deleting anything.
+
 ## Files and locations
 
 - Backup script: `scripts/backup-apple-notes.sh`
@@ -49,7 +71,7 @@ Archive names begin with the date, for example `apple-notes-2026-07-10.zip`. Eac
 
 ## How a backup works
 
-The background job runs at login and approximately once every 24 hours. The lightweight check looks for a completed `apple-notes-*.zip` archive modified within the last 30 days. If one exists, it logs that no work is needed and exits without closing Notes.
+The background job runs at login and approximately once every 24 hours. The lightweight check looks for a completed `apple-notes-*.zip` archive modified within the last 10 days. If one exists, it logs that no work is needed and exits without closing Notes.
 
 When a backup is due, the script:
 
@@ -61,7 +83,8 @@ When a backup is due, the script:
 6. Randomly chooses an older archive, recalculates its SHA-256 hash, and compares it with the stored checksum. If there is no older archive, it verifies the new one.
 7. Tests the randomly selected archive with `unzip -t` after its checksum matches.
 8. Records the new archive's size and SHA-256 checksum in the log.
-9. Reopens Notes only if it was open when the backup began.
+9. If automatic cleanup was explicitly enabled, moves redundant archives to Trash only after the verified backup is complete.
+10. Reopens Notes only if it was open when the backup began.
 
 The ZIP test confirms that every archived entry can be decompressed. The checksum comparison confirms that the archive's bytes have not changed since it was created. Partial archives and checksum files are removed after errors. A lock prevents overlapping runs.
 
@@ -88,6 +111,20 @@ Run only the lightweight age check:
 ```sh
 ./scripts/backup-apple-notes.sh --if-stale
 ```
+
+Preview which redundant archive pairs the retention policy would remove:
+
+```sh
+./scripts/backup-apple-notes.sh --retention-preview
+```
+
+Apply the retention policy once, even when automatic cleanup is disabled:
+
+```sh
+./scripts/backup-apple-notes.sh --apply-retention
+```
+
+Applying retention removes eligible pairs from the backup destination by moving them to the Mac Trash. It verifies each archive immediately before the move, logs every moved filename, and sends one summary notification. It never falls back to permanent deletion.
 
 Inspect recent activity:
 

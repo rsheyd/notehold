@@ -9,21 +9,52 @@ readonly FALLBACK_LOG_FILE="$FALLBACK_LOG_DIR/apple-notes-backup.log"
 readonly BACKUP_LOG_FILE="$BACKUP_DIR/apple-notes-backup.log"
 readonly LOCK_DIR="${TMPDIR:-/tmp}/io.github.apple-notes-backup.lock"
 readonly STAGING_DIR="${TMPDIR:-/tmp}/io.github.apple-notes-backup-staging"
-readonly MAX_BACKUP_AGE_DAYS="${MAX_BACKUP_AGE_DAYS:-30}"
+readonly SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
+readonly MAX_BACKUP_AGE_DAYS="${MAX_BACKUP_AGE_DAYS:-10}"
+readonly AUTO_CLEANUP="${AUTO_CLEANUP:-false}"
 
 mkdir -p "$FALLBACK_LOG_DIR"
+exec 3>&1
 exec >>"$FALLBACK_LOG_FILE" 2>&1
 
 timestamp() { /bin/date '+%Y-%m-%d %H:%M:%S'; }
 log() { echo "$(timestamp) $*"; }
+
+run_manual_retention() {
+  retention_mode="$1"
+  set +e
+  retention_output=$("$SCRIPT_DIR/manage-retention.sh" "$retention_mode" 2>&1)
+  retention_status=$?
+  set -e
+  /usr/bin/printf '%s\n' "$retention_output"
+  /usr/bin/printf '%s\n' "$retention_output" >&3
+  return "$retention_status"
+}
 
 notes_was_open=0
 partial_archive=""
 partial_checksum=""
 mode="${1:---force}"
 
-if [ "$mode" != "--force" ] && [ "$mode" != "--if-stale" ]; then
-  echo "Usage: $0 [--force|--if-stale]" >&2
+if [ "$mode" != "--force" ] && [ "$mode" != "--if-stale" ] \
+  && [ "$mode" != "--retention-preview" ] && [ "$mode" != "--apply-retention" ]; then
+  echo "Usage: $0 [--force|--if-stale|--retention-preview|--apply-retention]" >&2
+  exit 2
+fi
+
+if [ "$AUTO_CLEANUP" != "true" ] && [ "$AUTO_CLEANUP" != "false" ]; then
+  echo "AUTO_CLEANUP must be true or false." >&2
+  exit 2
+fi
+
+case "$MAX_BACKUP_AGE_DAYS" in
+  ''|*[!0-9]*)
+    echo "MAX_BACKUP_AGE_DAYS must be a positive whole number." >&2
+    exit 2
+    ;;
+esac
+if [ "$MAX_BACKUP_AGE_DAYS" -lt 1 ]; then
+  echo "MAX_BACKUP_AGE_DAYS must be at least 1." >&2
   exit 2
 fi
 
@@ -57,14 +88,26 @@ fi
 if [ ! -d "$BACKUP_DIR" ]; then
   log "ERROR: backup destination is unavailable: $BACKUP_DIR"
   /usr/bin/osascript \
-    -e 'on run argv' \
-    -e 'display notification ("Backup destination unavailable: " & item 1 of argv) with title "Apple Notes backup failed"' \
+    -e 'use scripting additions' \
+    -e 'on run arguments' \
+    -e 'set notificationBody to "Backup destination unavailable: " & item 1 of arguments' \
+    -e 'display notification notificationBody with title "Apple Notes backup failed"' \
     -e 'end run' \
     -- "$BACKUP_DIR" || log "WARNING: could not display failure notification."
   exit 1
 fi
 
 exec >>"$BACKUP_LOG_FILE" 2>&1
+
+if [ "$mode" = "--retention-preview" ]; then
+  run_manual_retention --preview
+  exit 0
+fi
+
+if [ "$mode" = "--apply-retention" ]; then
+  run_manual_retention --apply
+  exit 0
+fi
 
 if [ "$mode" = "--if-stale" ]; then
   recent_archive=$(
@@ -156,3 +199,9 @@ log "Checksum verified for $(/usr/bin/basename "$random_archive")."
 
 size=$(/usr/bin/du -h "$archive" | /usr/bin/awk '{print $1}')
 log "Backup complete: $(/usr/bin/basename "$archive") ($size, SHA-256 $checksum)."
+
+if [ "$AUTO_CLEANUP" = "true" ]; then
+  if ! "$SCRIPT_DIR/manage-retention.sh" --apply; then
+    log "WARNING: automatic cleanup failed; the verified backup was preserved."
+  fi
+fi
