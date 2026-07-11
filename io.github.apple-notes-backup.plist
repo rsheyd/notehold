@@ -15,6 +15,10 @@
     <dict>
         <key>BACKUP_DIR</key>
         <string>/path/to/Backups/Apple Notes</string>
+        <key>MAX_BACKUP_AGE_DAYS</key>
+        <string>10</string>
+        <key>AUTO_CLEANUP</key>
+        <string>false</string>
     </dict>
 
     <key>RunAtLoad</key>
