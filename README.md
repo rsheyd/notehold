@@ -35,6 +35,27 @@ BACKUP_DIR="$HOME/path/to/your/backup-folder" ./scripts/install-launchagent.sh
 
 The installer creates the destination if needed, generates a LaunchAgent with paths for the current Mac, loads it, and reads back its status.
 
+### Adjust the backup frequency
+
+The default interval is 10 days. `MAX_BACKUP_AGE_DAYS` sets how old the newest successful archive must be before the daily check creates another one. Use a positive whole number when installing. For example, to back up every 7 days:
+
+```sh
+MAX_BACKUP_AGE_DAYS=7 ./scripts/install-launchagent.sh
+```
+
+The LaunchAgent still checks once per day and at login; changing this value controls when that check considers the backup stale. A backup might run later than the exact interval if the Mac was shut down, the user was logged out, or the destination was unavailable.
+
+Rerun the installer with the new value whenever you want to change the persistent schedule. Include the destination and cleanup settings again if you customized them, because the installer regenerates the LaunchAgent configuration:
+
+```sh
+MAX_BACKUP_AGE_DAYS=14 \
+AUTO_CLEANUP=true \
+BACKUP_DIR="$HOME/path/to/your/backup-folder" \
+  ./scripts/install-launchagent.sh
+```
+
+`--force` always creates a backup regardless of this interval. Setting `MAX_BACKUP_AGE_DAYS` only for a manual `--if-stale` command changes that one check; rerunning the installer is what makes the value persistent for scheduled checks.
+
 ### Optional automatic cleanup
 
 Archives are never removed by default. To opt into automatically moving redundant archives to the Mac Trash when installing:
