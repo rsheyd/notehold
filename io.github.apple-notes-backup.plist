@@ -3,13 +3,19 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.roman.apple-notes-backup</string>
+    <string>io.github.apple-notes-backup</string>
 
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/roman/dev/apple-notes-backup/scripts/backup-apple-notes.sh</string>
+        <string>/path/to/apple-notes-backup/scripts/backup-apple-notes.sh</string>
         <string>--if-stale</string>
     </array>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>BACKUP_DIR</key>
+        <string>/path/to/Backups/Apple Notes</string>
+    </dict>
 
     <key>RunAtLoad</key>
     <true/>
@@ -21,8 +27,8 @@
     <string>Background</string>
 
     <key>StandardOutPath</key>
-    <string>/Users/roman/Library/Logs/apple-notes-backup-launchd.log</string>
+    <string>/path/to/Library/Logs/apple-notes-backup-launchd.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/roman/Library/Logs/apple-notes-backup-launchd.log</string>
+    <string>/path/to/Library/Logs/apple-notes-backup-launchd.log</string>
 </dict>
 </plist>
