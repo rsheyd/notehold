@@ -47,11 +47,12 @@ BACKUP_DIR="$work_dir" NOTIFY_RETENTION=false "$RETENTION_SCRIPT" --preview >"$w
 after_preview_count=$(/usr/bin/find "$work_dir" -maxdepth 1 -type f -name 'apple-notes-*.zip' | /usr/bin/wc -l | /usr/bin/tr -d ' ')
 
 if [ "$before_count" != "$after_preview_count" ]; then
-  echo "Preview deleted an archive." >&2
+  echo "Preview moved an archive." >&2
   exit 1
 fi
 
-BACKUP_DIR="$work_dir" NOTIFY_RETENTION=false "$RETENTION_SCRIPT" --apply >"$work_dir/apply.log"
+BACKUP_DIR="$work_dir" NOTIFY_RETENTION=false RETENTION_TRASH_DIR_FOR_TESTS="$work_dir/trash" \
+  "$RETENTION_SCRIPT" --apply >"$work_dir/apply.log"
 
 for age in 0 10 20 30 90 180 365; do
   test -f "$(archive_for_age "$age")"
@@ -62,24 +63,28 @@ test ! -e "$(archive_for_age 40)"
 test ! -e "$(archive_for_age 40).sha256"
 test ! -e "$(archive_for_age 500)"
 test ! -e "$(archive_for_age 500).sha256"
+test -f "$work_dir/trash/$(/usr/bin/basename "$(archive_for_age 40)")"
+test -f "$work_dir/trash/$(/usr/bin/basename "$(archive_for_age 40)").sha256"
+test -f "$work_dir/trash/$(/usr/bin/basename "$(archive_for_age 500)")"
+test -f "$work_dir/trash/$(/usr/bin/basename "$(archive_for_age 500)").sha256"
 test -f "$(archive_for_age 600)"
 test -f "$(archive_for_age 600).sha256"
 test -f "$missing_checksum"
 test -f "$mismatched"
 test -f "$mismatched.sha256"
 
-/usr/bin/grep -q 'Retention preview only: no files were deleted.' "$work_dir/preview.log"
-/usr/bin/grep -q 'Retention complete: deleted 2 redundant archive pair(s).' "$work_dir/apply.log"
+/usr/bin/grep -q 'Retention preview only: no files were moved to Trash.' "$work_dir/preview.log"
+/usr/bin/grep -q 'Retention complete: moved 2 redundant archive pair(s) to Trash; 0 pair(s) need attention.' "$work_dir/apply.log"
 /usr/bin/grep -q 'matching checksum file is missing' "$work_dir/apply.log"
 /usr/bin/grep -q 'checksum metadata is invalid or mismatched' "$work_dir/apply.log"
-/usr/bin/grep -q 'checksum verification failed before deletion' "$work_dir/apply.log"
+/usr/bin/grep -q 'checksum verification failed before cleanup' "$work_dir/apply.log"
 
 /bin/mkdir -p "$work_dir/test-home/Library/Logs"
 wrapper_output=$(
   HOME="$work_dir/test-home" BACKUP_DIR="$work_dir" NOTIFY_RETENTION=false \
     "$BACKUP_SCRIPT" --retention-preview
 )
-/usr/bin/printf '%s\n' "$wrapper_output" | /usr/bin/grep -q 'Retention preview only: no files were deleted.'
-/usr/bin/grep -q 'Retention preview only: no files were deleted.' "$work_dir/apple-notes-backup.log"
+/usr/bin/printf '%s\n' "$wrapper_output" | /usr/bin/grep -q 'Retention preview only: no files were moved to Trash.'
+/usr/bin/grep -q 'Retention preview only: no files were moved to Trash.' "$work_dir/apple-notes-backup.log"
 
 echo "Retention tests passed."

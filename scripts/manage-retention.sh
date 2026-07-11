@@ -4,11 +4,34 @@ set -eu
 
 readonly BACKUP_DIR="${BACKUP_DIR:-$HOME/Backups/Apple Notes}"
 readonly NOTIFY_RETENTION="${NOTIFY_RETENTION:-true}"
+readonly RETENTION_TRASH_DIR_FOR_TESTS="${RETENTION_TRASH_DIR_FOR_TESTS:-}"
 readonly TARGET_AGES="10 20 30 90 180 365"
 readonly mode="${1:---preview}"
 
 timestamp() { /bin/date '+%Y-%m-%d %H:%M:%S'; }
 log() { echo "$(timestamp) $*"; }
+
+move_pair_to_trash() {
+  archive="$1"
+  checksum_file="$2"
+
+  if [ -n "$RETENTION_TRASH_DIR_FOR_TESTS" ]; then
+    /bin/mkdir -p "$RETENTION_TRASH_DIR_FOR_TESTS"
+    /bin/mv "$archive" "$checksum_file" "$RETENTION_TRASH_DIR_FOR_TESTS/"
+    return
+  fi
+
+  /usr/bin/osascript \
+    -e 'on run arguments' \
+    -e 'set archiveFile to POSIX file (item 1 of arguments)' \
+    -e 'set checksumFile to POSIX file (item 2 of arguments)' \
+    -e 'tell application "Finder"' \
+    -e 'delete archiveFile' \
+    -e 'delete checksumFile' \
+    -e 'end tell' \
+    -e 'end run' \
+    -- "$archive" "$checksum_file"
+}
 
 if [ "$mode" != "--preview" ] && [ "$mode" != "--apply" ]; then
   echo "Usage: $0 [--preview|--apply]" >&2
@@ -34,11 +57,11 @@ trap cleanup EXIT HUP INT TERM
 candidates="$work_dir/candidates.tsv"
 selected="$work_dir/selected.txt"
 deletions="$work_dir/deletions.txt"
-deleted_names="$work_dir/deleted-names.txt"
+trashed_names="$work_dir/trashed-names.txt"
 : >"$candidates"
 : >"$selected"
 : >"$deletions"
-: >"$deleted_names"
+: >"$trashed_names"
 
 today=$(/bin/date '+%Y-%m-%d')
 today_epoch=$(/bin/date -j -f '%Y-%m-%d' "$today" '+%s')
@@ -128,13 +151,14 @@ fi
 if [ "$mode" = "--preview" ]; then
   while IFS= read -r archive; do
     [ -n "$archive" ] || continue
-    log "Retention preview would delete: $(/usr/bin/basename "$archive") and its checksum."
+    log "Retention preview would move to Trash: $(/usr/bin/basename "$archive") and its checksum."
   done <"$deletions"
-  log "Retention preview only: no files were deleted."
+  log "Retention preview only: no files were moved to Trash."
   exit 0
 fi
 
-deleted_count=0
+trashed_count=0
+failure_count=0
 while IFS= read -r archive; do
   [ -n "$archive" ] || continue
   checksum_file="$archive.sha256"
@@ -143,33 +167,48 @@ while IFS= read -r archive; do
   actual_checksum=$(/usr/bin/shasum -a 256 "$archive" | /usr/bin/awk '{ print $1 }')
 
   if [ "$actual_checksum" != "$expected_checksum" ]; then
-    log "Retention protected $archive_name: checksum verification failed before deletion."
+    log "Retention protected $archive_name: checksum verification failed before cleanup."
     continue
   fi
 
-  if /bin/rm -f "$archive"; then
-    /bin/rm -f "$checksum_file"
-    deleted_count=$((deleted_count + 1))
-    /usr/bin/printf '%s\n' "$archive_name" >>"$deleted_names"
-    log "Retention deleted: $archive_name and its checksum."
+  if move_pair_to_trash "$archive" "$checksum_file" \
+    && [ ! -e "$archive" ] && [ ! -e "$checksum_file" ]; then
+    trashed_count=$((trashed_count + 1))
+    /usr/bin/printf '%s\n' "$archive_name" >>"$trashed_names"
+    log "Retention moved to Trash: $archive_name and its checksum."
   else
-    log "ERROR: retention could not delete $archive_name; its checksum was preserved."
+    failure_count=$((failure_count + 1))
+    if [ -e "$archive" ] && [ -e "$checksum_file" ]; then
+      log "ERROR: cleanup could not move $archive_name and its checksum to Trash; both remain in the destination."
+    else
+      log "ERROR: cleanup only partially moved the $archive_name pair to Trash; manual attention is required."
+    fi
   fi
 done <"$deletions"
 
-if [ "$deleted_count" -gt 0 ] && [ "$NOTIFY_RETENTION" = "true" ]; then
-  if [ "$deleted_count" -eq 1 ]; then
-    notification_body="Deleted 1 redundant archive: $(/usr/bin/head -1 "$deleted_names")."
+if [ "$NOTIFY_RETENTION" = "true" ] && { [ "$trashed_count" -gt 0 ] || [ "$failure_count" -gt 0 ]; }; then
+  if [ "$failure_count" -gt 0 ]; then
+    notification_title="Apple Notes backup cleanup needs attention"
+    notification_body="Moved $trashed_count archive pair(s) to Trash; $failure_count pair(s) could not be moved safely."
+  elif [ "$trashed_count" -eq 1 ]; then
+    notification_title="Apple Notes backup cleanup"
+    notification_body="Moved 1 redundant archive to Trash: $(/usr/bin/head -1 "$trashed_names")."
   else
-    notification_body="Deleted $deleted_count redundant archives. See the backup log for filenames."
+    notification_title="Apple Notes backup cleanup"
+    notification_body="Moved $trashed_count redundant archives to Trash. See the backup log for filenames."
   fi
   /usr/bin/osascript \
     -e 'use scripting additions' \
     -e 'on run arguments' \
-    -e 'set notificationBody to item 1 of arguments' \
-    -e 'display notification notificationBody with title "Apple Notes backup retention"' \
+    -e 'set notificationTitle to item 1 of arguments' \
+    -e 'set notificationBody to item 2 of arguments' \
+    -e 'display notification notificationBody with title notificationTitle' \
     -e 'end run' \
-    -- "$notification_body" || log "WARNING: could not display retention notification."
+    -- "$notification_title" "$notification_body" || log "WARNING: could not display cleanup notification."
 fi
 
-log "Retention complete: deleted $deleted_count redundant archive pair(s)."
+log "Retention complete: moved $trashed_count redundant archive pair(s) to Trash; $failure_count pair(s) need attention."
+
+if [ "$failure_count" -gt 0 ]; then
+  exit 1
+fi

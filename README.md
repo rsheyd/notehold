@@ -37,7 +37,7 @@ The installer creates the destination if needed, generates a LaunchAgent with pa
 
 ### Optional automatic cleanup
 
-Archives are never deleted by default. To opt into automatic deletion of redundant archives when installing:
+Archives are never removed by default. To opt into automatically moving redundant archives to the Mac Trash when installing:
 
 ```sh
 AUTO_CLEANUP=true BACKUP_DIR="$HOME/path/to/your/backup-folder" \
@@ -46,14 +46,14 @@ AUTO_CLEANUP=true BACKUP_DIR="$HOME/path/to/your/backup-folder" \
 
 Automatic cleanup runs only after a new archive has passed all backup and integrity checks. It always protects the newest archive, then keeps the valid archive/checksum pairs nearest approximately 10, 20, 30, 90, 180, and 365 days old. Because the Mac may be asleep or the destination unavailable on a target date, these are approximate recovery points rather than exact guarantees. Immediately after a backup, cleanup normally keeps at most seven valid pairs: the new archive plus six historical points.
 
-This option permanently deletes redundant ZIP and checksum pairs from the destination. If the destination is cloud-synced, those deletions will normally sync to the cloud provider. Before enabling it, preview the policy against your existing archives:
+This option asks Finder to move redundant ZIP and checksum pairs to the Mac Trash. It never falls back to permanent deletion. The files remain recoverable until Trash is emptied, but removing them from a cloud-synced destination will normally sync that removal to the cloud provider. Finder may ask for permission the first time cleanup runs. Before enabling it, preview the policy against your existing archives:
 
 ```sh
 BACKUP_DIR="$HOME/path/to/your/backup-folder" \
   ./scripts/backup-apple-notes.sh --retention-preview
 ```
 
-Incomplete pairs, invalid checksum metadata, the newest archive, and any archive that fails checksum verification immediately before deletion are never removed. Every decision is logged. After one or more pairs are deleted, macOS shows a single summary notification; the log contains the complete filenames.
+Incomplete pairs, invalid checksum metadata, the newest archive, and any archive that fails checksum verification immediately before cleanup are never moved. Every decision is logged. After one or more pairs are moved to Trash, macOS shows a single summary notification; the log contains the complete filenames. If Finder refuses the move or only part of a pair moves, cleanup reports an error and requires manual attention rather than permanently deleting anything.
 
 ## Files and locations
 
@@ -83,7 +83,7 @@ When a backup is due, the script:
 6. Randomly chooses an older archive, recalculates its SHA-256 hash, and compares it with the stored checksum. If there is no older archive, it verifies the new one.
 7. Tests the randomly selected archive with `unzip -t` after its checksum matches.
 8. Records the new archive's size and SHA-256 checksum in the log.
-9. If automatic deletion was explicitly enabled, cleans up redundant archives only after the verified backup is complete.
+9. If automatic cleanup was explicitly enabled, moves redundant archives to Trash only after the verified backup is complete.
 10. Reopens Notes only if it was open when the backup began.
 
 The ZIP test confirms that every archived entry can be decompressed. The checksum comparison confirms that the archive's bytes have not changed since it was created. Partial archives and checksum files are removed after errors. A lock prevents overlapping runs.
@@ -118,13 +118,13 @@ Preview which redundant archive pairs the retention policy would remove:
 ./scripts/backup-apple-notes.sh --retention-preview
 ```
 
-Apply the retention policy once, even when automatic deletion is disabled:
+Apply the retention policy once, even when automatic cleanup is disabled:
 
 ```sh
 ./scripts/backup-apple-notes.sh --apply-retention
 ```
 
-Applying retention is destructive. It verifies each eligible archive immediately before deleting the ZIP and its checksum, logs every deletion, and sends one summary notification.
+Applying retention removes eligible pairs from the backup destination by moving them to the Mac Trash. It verifies each archive immediately before the move, logs every moved filename, and sends one summary notification. It never falls back to permanent deletion.
 
 Inspect recent activity:
 
