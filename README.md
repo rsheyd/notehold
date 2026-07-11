@@ -4,6 +4,19 @@ This setup creates versioned ZIP archives of the local Apple Notes data folder a
 
 By default, archives go to `~/Backups/Apple Notes`. Set `BACKUP_DIR` when installing or running the script to use another local or cloud-synced folder. The script also accepts `NOTES_DIR` and `MAX_BACKUP_AGE_DAYS` environment variables.
 
+## Choose a backup destination
+
+The default destination is stored on the same Mac as the Notes database. It can help with accidental changes to Notes, but it does not protect against loss, theft, or failure of the Mac's storage. For better protection, use a folder that is copied off the Mac—for example, a locally synced Google Drive, Dropbox, OneDrive, or iCloud Drive folder—or include the destination in another backup system such as Time Machine.
+
+`BACKUP_DIR` is the local filesystem path where this script writes the archives. To use cloud storage, create a folder inside the provider's synced folder and pass that local path to the installer. On current macOS versions, many providers appear under `~/Library/CloudStorage`; the exact path depends on the provider and account. For example:
+
+```sh
+BACKUP_DIR="$HOME/Library/CloudStorage/Dropbox/Backups/Apple Notes" \
+  ./scripts/install-launchagent.sh
+```
+
+Use the actual path shown on your Mac rather than copying the example unchanged. One easy way to get it is to drag the destination folder from Finder into Terminal. Confirm that the provider keeps the folder available locally and that a test archive finishes syncing to another device or the provider's website. The script verifies the local ZIP and checksum, but it cannot verify that the cloud provider completed its remote upload. Cloud sync also should not be the only copy when stronger protection is needed, because deletions or corruption can sync too.
+
 ## Install
 
 Clone this repository, then run:
