@@ -1,46 +1,96 @@
 # Apple Notes backup
 
-This setup creates versioned ZIP archives of the local Apple Notes data folder and stores them in a destination you choose. It checks once a day and after login, but only creates an archive when the newest successful backup is at least 10 days old.
+Apple Notes Backup creates dated ZIP archives of your complete local Notes database. It checks once a day and after login, and by default creates a new backup when the latest successful one is at least 10 days old.
 
-By default, archives go to `~/Backups/Apple Notes`. Set `BACKUP_DIR` when installing or running the script to use another local or cloud-synced folder. The script also accepts `NOTES_DIR` and `MAX_BACKUP_AGE_DAYS` environment variables.
+Archives go to `~/Backups/Apple Notes` by default. You can instead use an external drive or a folder synced by Dropbox, Google Drive, OneDrive, or iCloud Drive.
 
-The project intentionally uses ordinary dated ZIP files instead of a specialized snapshot repository. ZIPs work predictably in cloud-synced folders, remain inspectable without this project, and do not require a repository password or special restore tool.
+## Contents
+
+- [Why use this?](#why-use-this)
+- [Quick start](#quick-start)
+- [Choose a backup destination](#choose-a-backup-destination)
+- [Change the backup destination](#change-the-backup-destination)
+- [Change the backup frequency](#change-the-backup-frequency)
+- [Optional automatic cleanup](#optional-automatic-cleanup)
+- [Files and locations](#files-and-locations)
+- [How a backup works](#how-a-backup-works)
+- [Sleeping, shutdown, and failures](#sleeping-shutdown-and-failures)
+- [Permissions](#permissions)
+- [Manual commands](#manual-commands)
+- [Restoring a backup](#restoring-a-backup)
+- [Reload or uninstall](#reload-or-uninstall)
+
+## Why use this?
+
+iCloud keeps Notes synchronized across devices, but synchronization is not the same as keeping independent, dated backups. An accidental edit or deletion can sync to every device. This project gives you ordinary ZIP files that you can inspect, copy, and verify without a proprietary restore tool or repository password.
+
+For protection from loss or failure of the Mac itself, store the archives somewhere that is copied off the Mac, such as an external drive or a cloud-synced folder. The script verifies each local ZIP and checksum, but it cannot confirm that a cloud provider finished uploading it.
+
+## Quick start
+
+1. Give `/bin/bash` Full Disk Access under **System Settings > Privacy & Security > Full Disk Access**. This allows the background job to read the protected Notes database.
+2. From this repository, run:
+
+   ```sh
+   ./scripts/install-launchagent.sh
+   ```
+
+3. Create the first backup:
+
+   ```sh
+   ./scripts/backup-apple-notes.sh --force
+   ```
+
+4. Look for the new ZIP and its `.sha256` checksum file in `~/Backups/Apple Notes`.
+
+The installer creates the default destination when needed, installs the daily background job, loads it, and prints a short summary of the active destination, frequency, cleanup setting, and retained recovery points. It stops with an explanation if another LaunchAgent already points to the same backup script, preventing duplicate scheduled checks. The first backup can be large and may take a while. Notes closes briefly so the database can be archived consistently, then reopens if it was open before the backup began.
 
 ## Choose a backup destination
 
 The default destination is stored on the same Mac as the Notes database. It can help with accidental changes to Notes, but it does not protect against loss, theft, or failure of the Mac's storage. For better protection, use a folder that is copied off the Mac—for example, a locally synced Google Drive, Dropbox, OneDrive, or iCloud Drive folder—or include the destination in another backup system such as Time Machine.
 
-`BACKUP_DIR` is the local filesystem path where this script writes the archives. To use cloud storage, create a folder inside the provider's synced folder and pass that local path to the installer. On current macOS versions, many providers appear under `~/Library/CloudStorage`; the exact path depends on the provider and account. For example:
+`BACKUP_DIR` is the local path where the script writes archives. To select a destination during installation, create the folder first and then pass its path to the installer:
 
 ```sh
 BACKUP_DIR="$HOME/Library/CloudStorage/Dropbox/Backups/Apple Notes" \
   ./scripts/install-launchagent.sh
 ```
 
-Use the actual path shown on your Mac rather than copying the example unchanged. One easy way to get it is to drag the destination folder from Finder into Terminal. Confirm that the provider keeps the folder available locally and that a test archive finishes syncing to another device or the provider's website. The script verifies the local ZIP and checksum, but it cannot verify that the cloud provider completed its remote upload. Cloud sync also should not be the only copy when stronger protection is needed, because deletions or corruption can sync too.
+Use the actual path on your Mac rather than copying this example unchanged. You can drag a folder from Finder into Terminal to insert its full path. Cloud providers commonly appear under `~/Library/CloudStorage`, although the exact path depends on the provider and account. If an explicitly selected folder does not exist or is unavailable, the installer stops and asks you to choose or create it instead of silently creating a possibly mistyped path.
 
-## Install
+Make sure the destination remains downloaded locally. After creating a test backup, confirm that its ZIP and checksum appear on another device or on the provider's website. Cloud sync should not be the only copy when stronger protection is needed, because deletions and corruption can sync too.
 
-Clone this repository, then run:
+## Change the backup destination
+
+Changing the destination does not move or delete any existing archives. They remain in the old folder unless you copy them yourself.
+
+1. Create or choose the new folder. If it is cloud-synced, make sure it is available locally.
+2. Rerun the installer with the new path. Also repeat any non-default frequency or cleanup settings you use, because the installer regenerates the complete configuration each time:
+
+   ```sh
+   BACKUP_DIR="$HOME/path/to/your/new-backup-folder" \
+   BACKUP_INTERVAL_DAYS=10 \
+   AUTO_CLEANUP=false \
+     ./scripts/install-launchagent.sh
+   ```
+
+3. Create and verify a backup in the new destination:
+
+   ```sh
+   BACKUP_DIR="$HOME/path/to/your/new-backup-folder" \
+     ./scripts/backup-apple-notes.sh --force
+   ```
+
+4. Confirm that the new folder contains a dated `.zip` file and its adjacent `.zip.sha256` file. For a cloud destination, also confirm that both files finish syncing.
+
+The manual command needs `BACKUP_DIR` because it does not read the destination from the installed LaunchAgent. Once the installer has been rerun, scheduled backups use the new destination automatically.
+
+## Change the backup frequency
+
+The default backup frequency is every 10 days. `BACKUP_INTERVAL_DAYS` sets the minimum number of days between successful backups. Use a positive whole number when installing. For example, to back up every 7 days:
 
 ```sh
-./scripts/install-launchagent.sh
-```
-
-To choose another destination:
-
-```sh
-BACKUP_DIR="$HOME/path/to/your/backup-folder" ./scripts/install-launchagent.sh
-```
-
-The installer creates the destination if needed, generates a LaunchAgent with paths for the current Mac, loads it, and reads back its status.
-
-### Adjust the backup frequency
-
-The default interval is 10 days. `MAX_BACKUP_AGE_DAYS` sets how old the newest successful archive must be before the daily check creates another one. Use a positive whole number when installing. For example, to back up every 7 days:
-
-```sh
-MAX_BACKUP_AGE_DAYS=7 ./scripts/install-launchagent.sh
+BACKUP_INTERVAL_DAYS=7 ./scripts/install-launchagent.sh
 ```
 
 The LaunchAgent still checks once per day and at login; changing this value controls when that check considers the backup stale. A backup might run later than the exact interval if the Mac was shut down, the user was logged out, or the destination was unavailable.
@@ -48,15 +98,15 @@ The LaunchAgent still checks once per day and at login; changing this value cont
 Rerun the installer with the new value whenever you want to change the persistent schedule. Include the destination and cleanup settings again if you customized them, because the installer regenerates the LaunchAgent configuration:
 
 ```sh
-MAX_BACKUP_AGE_DAYS=14 \
+BACKUP_INTERVAL_DAYS=14 \
 AUTO_CLEANUP=true \
 BACKUP_DIR="$HOME/path/to/your/backup-folder" \
   ./scripts/install-launchagent.sh
 ```
 
-`--force` always creates a backup regardless of this interval. Setting `MAX_BACKUP_AGE_DAYS` only for a manual `--if-stale` command changes that one check; rerunning the installer is what makes the value persistent for scheduled checks.
+`--force` always creates a backup regardless of this interval. Setting `BACKUP_INTERVAL_DAYS` only for a manual `--if-stale` command changes that one check; rerunning the installer is what makes the value persistent for scheduled checks.
 
-### Optional automatic cleanup
+## Optional automatic cleanup
 
 Archives are never removed by default. To opt into automatically moving redundant archives to the Mac Trash when installing:
 
@@ -65,7 +115,7 @@ AUTO_CLEANUP=true BACKUP_DIR="$HOME/path/to/your/backup-folder" \
   ./scripts/install-launchagent.sh
 ```
 
-Automatic cleanup runs only after a new archive has passed all backup and integrity checks. It always protects the newest archive, then keeps the valid archive/checksum pairs nearest approximately 10, 20, 30, 90, 180, and 365 days old. Because the Mac may be asleep or the destination unavailable on a target date, these are approximate recovery points rather than exact guarantees. Immediately after a backup, cleanup normally keeps at most seven valid pairs: the new archive plus six historical points.
+Automatic cleanup runs only after a new archive has passed all backup and integrity checks. Only the most recent, 10-day, 30-day, 90-day, 180-day, and 365-day-old backups are retained. Because the Mac may be asleep or the destination unavailable on a target date, these are approximate recovery points rather than exact guarantees. Immediately after a backup, cleanup normally keeps at most six valid pairs: the new archive plus five historical points.
 
 This option asks Finder to move redundant ZIP and checksum pairs to the Mac Trash. It never falls back to permanent deletion. The files remain recoverable until Trash is emptied, but removing them from a cloud-synced destination will normally sync that removal to the cloud provider. Finder may ask for permission the first time cleanup runs. Before enabling it, preview the policy against your existing archives:
 
@@ -74,7 +124,7 @@ BACKUP_DIR="$HOME/path/to/your/backup-folder" \
   ./scripts/backup-apple-notes.sh --retention-preview
 ```
 
-Incomplete pairs, invalid checksum metadata, the newest archive, and any archive that fails checksum verification immediately before cleanup are never moved. Every decision is logged. After one or more pairs are moved to Trash, macOS shows a single summary notification; the log contains the complete filenames. If Finder refuses the move or only part of a pair moves, cleanup reports an error and requires manual attention rather than permanently deleting anything.
+Incomplete pairs, invalid checksum metadata, the most recent archive, and any archive that fails checksum verification immediately before cleanup are never moved. Every decision is logged. After one or more pairs are moved to Trash, macOS shows a single summary notification; the log contains the complete filenames. If Finder refuses the move or only part of a pair moves, cleanup reports an error and requires manual attention rather than permanently deleting anything.
 
 ## Files and locations
 
@@ -84,7 +134,7 @@ Incomplete pairs, invalid checksum metadata, the newest archive, and any archive
 - Installed LaunchAgent: `~/Library/LaunchAgents/io.github.apple-notes-backup.plist`
 - Notes source: `~/Library/Group Containers/group.com.apple.notes`
 - Default archive destination: `~/Backups/Apple Notes`
-- Backup log: `~/Backups/Apple Notes/apple-notes-backup.log`
+- Backup log: `apple-notes-backup.log` inside the configured archive destination
 - Fallback log when the backup folder is unavailable: `~/Library/Logs/apple-notes-backup.log`
 - LaunchAgent output: `~/Library/Logs/apple-notes-backup-launchd.log`
 

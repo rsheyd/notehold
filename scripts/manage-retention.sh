@@ -5,7 +5,7 @@ set -eu
 readonly BACKUP_DIR="${BACKUP_DIR:-$HOME/Backups/Apple Notes}"
 readonly NOTIFY_RETENTION="${NOTIFY_RETENTION:-true}"
 readonly RETENTION_TRASH_DIR_FOR_TESTS="${RETENTION_TRASH_DIR_FOR_TESTS:-}"
-readonly TARGET_AGES="10 20 30 90 180 365"
+readonly TARGET_AGES="10 30 90 180 365"
 readonly mode="${1:---preview}"
 
 timestamp() { /bin/date '+%Y-%m-%d %H:%M:%S'; }
@@ -106,8 +106,8 @@ if [ ! -s "$candidates" ]; then
   exit 0
 fi
 
-newest=$(/usr/bin/sort -t "$(/usr/bin/printf '\t')" -k2,2nr "$candidates" | /usr/bin/head -1 | /usr/bin/awk -F '\t' '{ print $3 }')
-/usr/bin/printf '%s\n' "$newest" >>"$selected"
+most_recent=$(/usr/bin/sort -t "$(/usr/bin/printf '\t')" -k2,2nr "$candidates" | /usr/bin/head -1 | /usr/bin/awk -F '\t' '{ print $3 }')
+/usr/bin/printf '%s\n' "$most_recent" >>"$selected"
 
 for target in $TARGET_AGES; do
   choice=$(
@@ -136,7 +136,7 @@ done
   !selected[$3] { print $3 }
 ' "$selected" "$candidates" >"$deletions"
 
-log "Retention plan: protecting the newest archive plus backups nearest 10, 20, 30, 90, 180, and 365 days old."
+log "Retention plan: protecting the most recent archive plus backups nearest 10, 30, 90, 180, and 365 days old."
 while IFS= read -r archive; do
   [ -n "$archive" ] || continue
   age_days=$(/usr/bin/awk -F '\t' -v path="$archive" '$3 == path { print $1; exit }' "$candidates")

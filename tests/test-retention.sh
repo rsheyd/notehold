@@ -54,15 +54,19 @@ fi
 BACKUP_DIR="$work_dir" NOTIFY_RETENTION=false RETENTION_TRASH_DIR_FOR_TESTS="$work_dir/trash" \
   "$RETENTION_SCRIPT" --apply >"$work_dir/apply.log"
 
-for age in 0 10 20 30 90 180 365; do
+for age in 0 10 30 90 180 365; do
   test -f "$(archive_for_age "$age")"
   test -f "$(archive_for_age "$age").sha256"
 done
 
 test ! -e "$(archive_for_age 40)"
 test ! -e "$(archive_for_age 40).sha256"
+test ! -e "$(archive_for_age 20)"
+test ! -e "$(archive_for_age 20).sha256"
 test ! -e "$(archive_for_age 500)"
 test ! -e "$(archive_for_age 500).sha256"
+test -f "$work_dir/trash/$(/usr/bin/basename "$(archive_for_age 20)")"
+test -f "$work_dir/trash/$(/usr/bin/basename "$(archive_for_age 20)").sha256"
 test -f "$work_dir/trash/$(/usr/bin/basename "$(archive_for_age 40)")"
 test -f "$work_dir/trash/$(/usr/bin/basename "$(archive_for_age 40)").sha256"
 test -f "$work_dir/trash/$(/usr/bin/basename "$(archive_for_age 500)")"
@@ -74,7 +78,7 @@ test -f "$mismatched"
 test -f "$mismatched.sha256"
 
 /usr/bin/grep -q 'Retention preview only: no files were moved to Trash.' "$work_dir/preview.log"
-/usr/bin/grep -q 'Retention complete: moved 2 redundant archive pair(s) to Trash; 0 pair(s) need attention.' "$work_dir/apply.log"
+/usr/bin/grep -q 'Retention complete: moved 3 redundant archive pair(s) to Trash; 0 pair(s) need attention.' "$work_dir/apply.log"
 /usr/bin/grep -q 'matching checksum file is missing' "$work_dir/apply.log"
 /usr/bin/grep -q 'checksum metadata is invalid or mismatched' "$work_dir/apply.log"
 /usr/bin/grep -q 'checksum verification failed before cleanup' "$work_dir/apply.log"
