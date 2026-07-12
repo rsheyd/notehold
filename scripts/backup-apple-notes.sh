@@ -10,7 +10,7 @@ readonly BACKUP_LOG_FILE="$BACKUP_DIR/apple-notes-backup.log"
 readonly LOCK_DIR="${TMPDIR:-/tmp}/io.github.apple-notes-backup.lock"
 readonly STAGING_DIR="${TMPDIR:-/tmp}/io.github.apple-notes-backup-staging"
 readonly SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
-readonly MAX_BACKUP_AGE_DAYS="${MAX_BACKUP_AGE_DAYS:-10}"
+readonly BACKUP_INTERVAL_DAYS="${BACKUP_INTERVAL_DAYS:-10}"
 readonly AUTO_CLEANUP="${AUTO_CLEANUP:-false}"
 
 mkdir -p "$FALLBACK_LOG_DIR"
@@ -47,14 +47,14 @@ if [ "$AUTO_CLEANUP" != "true" ] && [ "$AUTO_CLEANUP" != "false" ]; then
   exit 2
 fi
 
-case "$MAX_BACKUP_AGE_DAYS" in
+case "$BACKUP_INTERVAL_DAYS" in
   ''|*[!0-9]*)
-    echo "MAX_BACKUP_AGE_DAYS must be a positive whole number." >&2
+    echo "BACKUP_INTERVAL_DAYS must be a positive whole number." >&2
     exit 2
     ;;
 esac
-if [ "$MAX_BACKUP_AGE_DAYS" -lt 1 ]; then
-  echo "MAX_BACKUP_AGE_DAYS must be at least 1." >&2
+if [ "$BACKUP_INTERVAL_DAYS" -lt 1 ]; then
+  echo "BACKUP_INTERVAL_DAYS must be at least 1." >&2
   exit 2
 fi
 
@@ -112,10 +112,10 @@ fi
 if [ "$mode" = "--if-stale" ]; then
   recent_archive=$(
     /usr/bin/find "$BACKUP_DIR" -maxdepth 1 -type f -name 'apple-notes-*.zip' \
-      -mtime -"$MAX_BACKUP_AGE_DAYS" -print -quit
+      -mtime -"$BACKUP_INTERVAL_DAYS" -print -quit
   )
   if [ -n "$recent_archive" ]; then
-    log "Backup check: a successful archive is less than $MAX_BACKUP_AGE_DAYS days old; nothing to do."
+    log "Backup check: a successful archive is less than $BACKUP_INTERVAL_DAYS days old; nothing to do."
     exit 0
   fi
 fi
