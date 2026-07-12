@@ -80,7 +80,7 @@ if ! /bin/launchctl print "gui/$(/usr/bin/id -u)/$LABEL" >/dev/null; then
   exit 1
 fi
 
-echo "Apple Notes Backup installed successfully."
+echo "Notehold installed successfully."
 echo "  Backup destination: $BACKUP_DESTINATION"
 echo "  Backup frequency: every $BACKUP_INTERVAL_SETTING days"
 if [ "$AUTO_CLEANUP_SETTING" = "true" ]; then

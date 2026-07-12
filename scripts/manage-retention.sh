@@ -188,13 +188,13 @@ done <"$deletions"
 
 if [ "$NOTIFY_RETENTION" = "true" ] && { [ "$trashed_count" -gt 0 ] || [ "$failure_count" -gt 0 ]; }; then
   if [ "$failure_count" -gt 0 ]; then
-    notification_title="Apple Notes backup cleanup needs attention"
+    notification_title="Notehold cleanup needs attention"
     notification_body="Moved $trashed_count archive pair(s) to Trash; $failure_count pair(s) could not be moved safely."
   elif [ "$trashed_count" -eq 1 ]; then
-    notification_title="Apple Notes backup cleanup"
+    notification_title="Notehold cleanup"
     notification_body="Moved 1 redundant archive to Trash: $(/usr/bin/head -1 "$trashed_names")."
   else
-    notification_title="Apple Notes backup cleanup"
+    notification_title="Notehold cleanup"
     notification_body="Moved $trashed_count redundant archives to Trash. See the backup log for filenames."
   fi
   /usr/bin/osascript \

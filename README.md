@@ -1,6 +1,8 @@
-# Apple Notes backup
+# Notehold
 
-Apple Notes Backup creates dated ZIP archives of your complete local Notes database. It checks once a day and after login, and by default creates a new backup when the latest successful one is at least 10 days old.
+**Automatic, recoverable backups for Apple Notes.**
+
+Notehold creates dated ZIP archives of your complete local Notes database. It checks once a day and after login, and by default creates a new backup when the latest successful one is at least 10 days old.
 
 Archives go to `~/Backups/Apple Notes` by default. You can instead use an external drive or a folder synced by Dropbox, Google Drive, OneDrive, or iCloud Drive.
 
@@ -17,6 +19,7 @@ Archives go to `~/Backups/Apple Notes` by default. You can instead use an extern
 - [Sleeping, shutdown, and failures](#sleeping-shutdown-and-failures)
 - [Permissions](#permissions)
 - [Manual commands](#manual-commands)
+- [Check backup status](#check-backup-status)
 - [Restoring a backup](#restoring-a-backup)
 - [Reload or uninstall](#reload-or-uninstall)
 
@@ -196,6 +199,16 @@ Apply the retention policy once, even when automatic cleanup is disabled:
 ```
 
 Applying retention removes eligible pairs from the backup destination by moving them to the Mac Trash. It verifies each archive immediately before the move, logs every moved filename, and sends one summary notification. It never falls back to permanent deletion.
+
+## Check backup status
+
+Show the installed destination, backup frequency, automatic-cleanup policy, most recent activity, and up to three recent backups:
+
+```sh
+./scripts/backup-apple-notes.sh --status
+```
+
+The status command is read-only. It reads configuration from the installed LaunchAgent, reports whether the destination is currently available, and does not print raw launchd environment details.
 
 Inspect recent activity:
 

@@ -2,6 +2,11 @@
 
 set -eu
 
+if [ "${1:-}" = "--status" ]; then
+  readonly STATUS_SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
+  exec "$STATUS_SCRIPT_DIR/show-status.sh"
+fi
+
 readonly NOTES_DIR="${NOTES_DIR:-$HOME/Library/Group Containers/group.com.apple.notes}"
 readonly BACKUP_DIR="${BACKUP_DIR:-$HOME/Backups/Apple Notes}"
 readonly FALLBACK_LOG_DIR="$HOME/Library/Logs"
@@ -38,7 +43,7 @@ mode="${1:---force}"
 
 if [ "$mode" != "--force" ] && [ "$mode" != "--if-stale" ] \
   && [ "$mode" != "--retention-preview" ] && [ "$mode" != "--apply-retention" ]; then
-  echo "Usage: $0 [--force|--if-stale|--retention-preview|--apply-retention]" >&2
+  echo "Usage: $0 [--force|--if-stale|--status|--retention-preview|--apply-retention]" >&2
   exit 2
 fi
 
@@ -91,7 +96,7 @@ if [ ! -d "$BACKUP_DIR" ]; then
     -e 'use scripting additions' \
     -e 'on run arguments' \
     -e 'set notificationBody to "Backup destination unavailable: " & item 1 of arguments' \
-    -e 'display notification notificationBody with title "Apple Notes backup failed"' \
+    -e 'display notification notificationBody with title "Notehold backup failed"' \
     -e 'end run' \
     -- "$BACKUP_DIR" || log "WARNING: could not display failure notification."
   exit 1
@@ -120,7 +125,7 @@ if [ "$mode" = "--if-stale" ]; then
   fi
 fi
 
-log "Starting Apple Notes backup."
+log "Starting Notehold backup."
 
 if [ ! -d "$NOTES_DIR" ]; then
   log "ERROR: Notes data folder does not exist: $NOTES_DIR"
