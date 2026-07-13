@@ -16,93 +16,30 @@ Also run a manual backup or status check when a change affects macOS permissions
 
 ## Publish a GitHub release
 
-The release process requires Git and an authenticated [GitHub CLI](https://cli.github.com/). The commands below assume the release-ready commit is on `main` and has been pushed to `origin`.
+The release process requires Git and an authenticated [GitHub CLI](https://cli.github.com/). Set `VERSION` to a new version number without a leading `v`, commit the release-ready changes on `main`, and push them to `origin`.
 
-### 1. Prepare the version
-
-Set `VERSION` to the new version number without a leading `v`, update the documentation, and commit the release-ready changes. Then run the tests and confirm that the working tree and remote branch agree:
+Then create and verify a draft release with:
 
 ```sh
-version=$(tr -d '\n' < VERSION)
-tag="v$version"
-
-git status --short
-git fetch origin
-test "$(git branch --show-current)" = "main"
-test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
-./notehold version
+scripts/publish-release.sh
 ```
 
-`git status --short` should print nothing, and `notehold version` should report the version in `VERSION`.
-
-### 2. Tag the release
-
-Create an annotated tag at the release commit and push it:
+After reviewing its generated release notes, publish it with:
 
 ```sh
-git tag -a "$tag" -m "Notehold $version"
-git push origin "$tag"
+scripts/publish-release.sh --publish
 ```
 
-Published tags are immutable. If a correction is needed after publishing, increment `VERSION` and create another release instead of moving the existing tag.
+The helper requires a clean `main` synchronized with `origin/main`. It runs the complete test suite; creates and pushes the annotated tag; builds the archive from that tag; creates or resumes the draft GitHub Release; uploads and downloads the archive and checksum; and verifies the checksum and extracted version before publishing. It is safe to rerun after an interrupted release as long as the existing tag points to the current commit.
 
-### 3. Build and verify the assets
+Published tags are immutable. If a correction is needed after publishing, increment `VERSION` and create another release instead of moving an existing tag.
 
-Create the installation archive from the tag, not from uncommitted files or the working tree:
+### Releasing with Codex
 
-```sh
-git archive \
-  --format=tar.gz \
-  --prefix="notehold-$version/" \
-  --output="/tmp/notehold-$version.tar.gz" \
-  "$tag"
+Use this prompt from the Notehold workspace:
 
-(
-  cd /tmp
-  shasum -a 256 "notehold-$version.tar.gz" \
-    > "notehold-$version.tar.gz.sha256"
-  shasum -a 256 -c "notehold-$version.tar.gz.sha256"
-)
-
-tar -tzf "/tmp/notehold-$version.tar.gz"
+```text
+Publish the version in VERSION to GitHub Releases. Review the release diff, run the tests, commit and push the release-ready changes if needed, then run scripts/publish-release.sh --publish and verify the published assets.
 ```
 
-Confirm that the checksum succeeds and the archive contains one top-level `notehold-VERSION` directory with the expected program files.
-
-### 4. Create and publish the release
-
-Create a draft release with both assets attached:
-
-```sh
-gh release create "$tag" \
-  "/tmp/notehold-$version.tar.gz" \
-  "/tmp/notehold-$version.tar.gz.sha256" \
-  --title "Notehold $version" \
-  --generate-notes \
-  --draft
-```
-
-Review the draft on the [Notehold releases page](https://github.com/rsheyd/notehold/releases). Edit the generated notes so they briefly cover user-visible changes, installation or upgrade implications, and any changed safety defaults. Then publish it in GitHub, or run:
-
-```sh
-gh release edit "$tag" --draft=false
-```
-
-### 5. Verify the published release
-
-Confirm that GitHub shows the correct tag and both assets:
-
-```sh
-gh release view "$tag"
-
-release_test=$(mktemp -d)
-gh release download "$tag" --dir "$release_test"
-(
-  cd "$release_test"
-  shasum -a 256 -c "notehold-$version.tar.gz.sha256"
-  tar -xzf "notehold-$version.tar.gz"
-  "notehold-$version/notehold" version
-)
-```
-
-The checksum must pass and the extracted command must report the published version. For significant installer changes, also test `./notehold install` from the extracted archive on macOS.
+Codex should still summarize the release contents before committing and should not reuse an existing published version number.
