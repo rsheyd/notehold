@@ -2,6 +2,8 @@
 
 **Automatic backups for Apple Notes.**
 
+![Notehold turns Apple Notes into a dated ZIP backup.](assets/notehold-readme-hero.png)
+
 Notehold is a command-line backup utility for macOS. It creates dated ZIP archives of your complete local Notes database, checks once a day and after login, and by default creates a new backup when the latest successful one is at least 10 days old.
 
 ## Install
