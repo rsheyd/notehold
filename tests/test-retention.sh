@@ -4,7 +4,7 @@ set -eu
 
 readonly PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd -P)"
 readonly RETENTION_SCRIPT="$PROJECT_DIR/scripts/manage-retention.sh"
-readonly BACKUP_SCRIPT="$PROJECT_DIR/scripts/backup-apple-notes.sh"
+readonly BACKUP_SCRIPT="$PROJECT_DIR/scripts/notehold-backup.sh"
 
 work_dir=$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/apple-notes-retention-test.XXXXXX")
 cleanup() {
@@ -89,6 +89,6 @@ wrapper_output=$(
     "$BACKUP_SCRIPT" --retention-preview
 )
 /usr/bin/printf '%s\n' "$wrapper_output" | /usr/bin/grep -q 'Retention preview only: no files were moved to Trash.'
-/usr/bin/grep -q 'Retention preview only: no files were moved to Trash.' "$work_dir/apple-notes-backup.log"
+/usr/bin/grep -q 'Retention preview only: no files were moved to Trash.' "$work_dir/notehold.log"
 
 echo "Retention tests passed."

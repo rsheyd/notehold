@@ -3,7 +3,7 @@
 set -eu
 
 readonly PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd -P)"
-readonly BACKUP_SCRIPT="$PROJECT_DIR/scripts/backup-apple-notes.sh"
+readonly STATUS_SCRIPT="$PROJECT_DIR/scripts/show-status.sh"
 
 work_dir=$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/apple-notes-status-test.XXXXXX")
 cleanup() {
@@ -13,9 +13,9 @@ trap cleanup EXIT HUP INT TERM
 
 test_home="$work_dir/home"
 backup_dir="$work_dir/backups"
-plist="$test_home/Library/LaunchAgents/io.github.apple-notes-backup.plist"
+plist="$test_home/Library/LaunchAgents/io.github.rsheyd.notehold.plist"
 /bin/mkdir -p "$test_home/Library/LaunchAgents" "$test_home/Library/Logs" "$backup_dir"
-/bin/cp "$PROJECT_DIR/io.github.apple-notes-backup.plist" "$plist"
+/bin/cp "$PROJECT_DIR/io.github.rsheyd.notehold.plist" "$plist"
 /usr/bin/plutil -replace EnvironmentVariables.BACKUP_DIR -string "$backup_dir" "$plist"
 /usr/bin/plutil -replace EnvironmentVariables.BACKUP_INTERVAL_DAYS -string 10 "$plist"
 /usr/bin/plutil -replace EnvironmentVariables.AUTO_CLEANUP -string true "$plist"
@@ -26,11 +26,11 @@ for day in 10 11 12 13; do
   /usr/bin/touch -t "202607${day}1200" "$archive"
 done
 /usr/bin/printf '2026-07-13 12:01:00 Backup complete: apple-notes-2026-07-13.zip.\n' \
-  >"$backup_dir/apple-notes-backup.log"
+  >"$backup_dir/notehold.log"
 
 status_output=$(
   HOME="$test_home" STATUS_SERVICE_LOADED_FOR_TESTS=true RENDER_API_KEY=must-not-appear \
-    "$BACKUP_SCRIPT" --status
+    "$STATUS_SCRIPT"
 )
 
 /usr/bin/printf '%s\n' "$status_output" | /usr/bin/grep -Fq 'Status: Installed and loaded'
@@ -53,7 +53,7 @@ fi
 
 missing_dir="$work_dir/missing"
 /usr/bin/plutil -replace EnvironmentVariables.BACKUP_DIR -string "$missing_dir" "$plist"
-missing_output=$(HOME="$test_home" STATUS_SERVICE_LOADED_FOR_TESTS=false "$BACKUP_SCRIPT" --status)
+missing_output=$(HOME="$test_home" STATUS_SERVICE_LOADED_FOR_TESTS=false "$STATUS_SCRIPT")
 /usr/bin/printf '%s\n' "$missing_output" | /usr/bin/grep -Fq "Destination: $missing_dir (unavailable)"
 /usr/bin/printf '%s\n' "$missing_output" | /usr/bin/grep -Fq 'Unable to check because the destination is unavailable.'
 

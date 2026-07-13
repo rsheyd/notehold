@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>io.github.apple-notes-backup</string>
+    <string>io.github.rsheyd.notehold</string>
 
     <key>ProgramArguments</key>
     <array>
-        <string>/path/to/apple-notes-backup/scripts/backup-apple-notes.sh</string>
+        <string>/path/to/notehold/scripts/notehold-backup.sh</string>
         <string>--if-stale</string>
     </array>
 
@@ -31,8 +31,8 @@
     <string>Background</string>
 
     <key>StandardOutPath</key>
-    <string>/path/to/Library/Logs/apple-notes-backup-launchd.log</string>
+    <string>/path/to/Library/Logs/notehold-launchd.log</string>
     <key>StandardErrorPath</key>
-    <string>/path/to/Library/Logs/apple-notes-backup-launchd.log</string>
+    <string>/path/to/Library/Logs/notehold-launchd.log</string>
 </dict>
 </plist>

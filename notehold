@@ -1,0 +1,102 @@
+#!/bin/bash
+
+set -eu
+
+source_path="$0"
+while [ -L "$source_path" ]; do
+  source_dir="$(cd "$(dirname "$source_path")" && pwd -P)"
+  source_path=$(/usr/bin/readlink "$source_path")
+  case "$source_path" in
+    /*) ;;
+    *) source_path="$source_dir/$source_path" ;;
+  esac
+done
+readonly PROJECT_DIR="$(cd "$(dirname "$source_path")" && pwd -P)"
+readonly INSTALLED_PLIST="$HOME/Library/LaunchAgents/io.github.rsheyd.notehold.plist"
+
+load_installed_settings() {
+  [ -f "$INSTALLED_PLIST" ] || return 0
+
+  if [ -z "${BACKUP_DIR+x}" ]; then
+    BACKUP_DIR=$(/usr/bin/plutil -extract EnvironmentVariables.BACKUP_DIR raw -o - "$INSTALLED_PLIST" 2>/dev/null || true)
+    [ -n "$BACKUP_DIR" ] && export BACKUP_DIR
+  fi
+  if [ -z "${BACKUP_INTERVAL_DAYS+x}" ]; then
+    BACKUP_INTERVAL_DAYS=$(/usr/bin/plutil -extract EnvironmentVariables.BACKUP_INTERVAL_DAYS raw -o - "$INSTALLED_PLIST" 2>/dev/null || true)
+    [ -n "$BACKUP_INTERVAL_DAYS" ] && export BACKUP_INTERVAL_DAYS
+  fi
+  if [ -z "${AUTO_CLEANUP+x}" ]; then
+    AUTO_CLEANUP=$(/usr/bin/plutil -extract EnvironmentVariables.AUTO_CLEANUP raw -o - "$INSTALLED_PLIST" 2>/dev/null || true)
+    [ -n "$AUTO_CLEANUP" ] && export AUTO_CLEANUP
+  fi
+}
+
+usage() {
+  cat <<'EOF'
+Usage:
+  notehold install
+  notehold status
+  notehold backup
+  notehold check
+  notehold retention preview
+  notehold retention apply
+  notehold version
+  notehold uninstall
+  notehold help
+EOF
+}
+
+command="${1:-help}"
+case "$command" in
+  install)
+    [ "$#" -eq 1 ] || { usage >&2; exit 2; }
+    exec "$PROJECT_DIR/scripts/install-notehold.sh"
+    ;;
+  status)
+    [ "$#" -eq 1 ] || { usage >&2; exit 2; }
+    exec "$PROJECT_DIR/scripts/show-status.sh"
+    ;;
+  backup)
+    [ "$#" -eq 1 ] || { usage >&2; exit 2; }
+    load_installed_settings
+    exec "$PROJECT_DIR/scripts/notehold-backup.sh" --force
+    ;;
+  check)
+    [ "$#" -eq 1 ] || { usage >&2; exit 2; }
+    load_installed_settings
+    exec "$PROJECT_DIR/scripts/notehold-backup.sh" --if-stale
+    ;;
+  retention)
+    case "${2:-}" in
+      preview)
+        [ "$#" -eq 2 ] || { usage >&2; exit 2; }
+        load_installed_settings
+        exec "$PROJECT_DIR/scripts/notehold-backup.sh" --retention-preview
+        ;;
+      apply)
+        [ "$#" -eq 2 ] || { usage >&2; exit 2; }
+        load_installed_settings
+        exec "$PROJECT_DIR/scripts/notehold-backup.sh" --apply-retention
+        ;;
+      *)
+        usage >&2
+        exit 2
+        ;;
+    esac
+    ;;
+  version|--version)
+    [ "$#" -eq 1 ] || { usage >&2; exit 2; }
+    /usr/bin/awk 'NR == 1 { print "Notehold " $0; exit }' "$PROJECT_DIR/VERSION"
+    ;;
+  uninstall)
+    [ "$#" -eq 1 ] || { usage >&2; exit 2; }
+    exec "$PROJECT_DIR/scripts/uninstall-notehold.sh"
+    ;;
+  help|-h|--help)
+    usage
+    ;;
+  *)
+    usage >&2
+    exit 2
+    ;;
+esac

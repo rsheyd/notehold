@@ -2,16 +2,16 @@
 
 set -eu
 
-readonly LABEL="io.github.apple-notes-backup"
+readonly LABEL="io.github.rsheyd.notehold"
 readonly INSTALLED_PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
-readonly FALLBACK_LOG="$HOME/Library/Logs/apple-notes-backup.log"
+readonly FALLBACK_LOG="$HOME/Library/Logs/notehold.log"
 
 echo "Notehold"
 echo
 
 if [ ! -f "$INSTALLED_PLIST" ]; then
   echo "Status: Not installed"
-  echo "Run ./scripts/install-launchagent.sh to install the background backup job."
+  echo "Run notehold install to install the background backup job."
   exit 1
 fi
 
@@ -57,7 +57,7 @@ else
   echo "Automatic cleanup: Disabled (backups are retained indefinitely)"
 fi
 
-activity_log="$backup_dir/apple-notes-backup.log"
+activity_log="$backup_dir/notehold.log"
 if [ ! -f "$activity_log" ]; then
   activity_log="$FALLBACK_LOG"
 fi

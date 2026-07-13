@@ -2,7 +2,11 @@
 
 **Automatic, recoverable backups for Apple Notes.**
 
-Notehold creates dated ZIP archives of your complete local Notes database. It checks once a day and after login, and by default creates a new backup when the latest successful one is at least 10 days old.
+Notehold is a command-line backup utility for macOS. It creates dated ZIP archives of your complete local Notes database, checks once a day and after login, and by default creates a new backup when the latest successful one is at least 10 days old.
+
+Notehold does not include a conventional Mac app or graphical interface. Installation, configuration, status, and manual backups are managed with the `notehold` command in Terminal.
+
+Source: [github.com/rsheyd/notehold](https://github.com/rsheyd/notehold)
 
 Archives go to `~/Backups/Apple Notes` by default. You can instead use an external drive or a folder synced by Dropbox, Google Drive, OneDrive, or iCloud Drive.
 
@@ -10,6 +14,7 @@ Archives go to `~/Backups/Apple Notes` by default. You can instead use an extern
 
 - [Why use this?](#why-use-this)
 - [Quick start](#quick-start)
+- [Install a newer version](#install-a-newer-version)
 - [Choose a backup destination](#choose-a-backup-destination)
 - [Change the backup destination](#change-the-backup-destination)
 - [Change the backup frequency](#change-the-backup-frequency)
@@ -31,22 +36,50 @@ For protection from loss or failure of the Mac itself, store the archives somewh
 
 ## Quick start
 
-1. Give `/bin/bash` Full Disk Access under **System Settings > Privacy & Security > Full Disk Access**. This allows the background job to read the protected Notes database.
-2. From this repository, run:
+1. Download and extract a versioned archive from the [Notehold releases](https://github.com/rsheyd/notehold/releases) page. Cloning the repository is only necessary for development.
+
+2. Give `/bin/bash` Full Disk Access under **System Settings > Privacy & Security > Full Disk Access**. See [Permissions](#permissions) for why the command-line version needs this. Do this before installation because the background check starts immediately when installed.
+
+3. In Terminal, change to the extracted directory and install Notehold:
 
    ```sh
-   ./scripts/install-launchagent.sh
+   ./notehold install
    ```
 
-3. Create the first backup:
+   The installer copies the released program into `~/Library/Application Support/Notehold`, places the `notehold` command in `~/.local/bin`, and installs the background job. The extracted download is no longer needed afterward.
+
+4. If the installer warns that `~/.local/bin` is not on `PATH`, add it for the default macOS shell and start a new login shell:
 
    ```sh
-   ./scripts/backup-apple-notes.sh --force
+   echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zprofile
+   exec zsh -l
    ```
 
-4. Look for the new ZIP and its `.sha256` checksum file in `~/Backups/Apple Notes`.
+   Confirm that the command is available:
 
-The installer creates the default destination when needed, installs the daily background job, loads it, and prints a short summary of the active destination, frequency, cleanup setting, and retained recovery points. It stops with an explanation if another LaunchAgent already points to the same backup script, preventing duplicate scheduled checks. The first backup can be large and may take a while. Notes closes briefly so the database can be archived consistently, then reopens if it was open before the backup began.
+   ```sh
+   command -v notehold
+   ```
+
+5. Create the first backup:
+
+   ```sh
+   notehold backup
+   ```
+
+By default, [optional automatic cleanup](#optional-automatic-cleanup) is off and backup archives are saved in `~/Backups/Apple Notes`. You will find the new ZIP and its `.sha256` checksum there.
+
+The installer creates the default destination when needed, installs and loads the daily background job, and prints a short summary of the active destination, frequency, cleanup setting, installed version, and program paths. It stops with an explanation rather than overwriting an unrelated `notehold` command or conflicting installation. Depending on the number of notes, backups can be large and may take a while. The Notes app closes briefly so the database can be archived consistently, then reopens if it was open before the backup began.
+
+## Install a newer version
+
+Download and extract the newer release, then run its installer:
+
+```sh
+./notehold install
+```
+
+Each release is copied into its own versioned program directory before the active `current` link is switched. The installed backup destination, frequency, and cleanup choice are preserved unless replacement values are supplied with the install command. Existing program versions remain available until `notehold uninstall`; backup archives and logs are always outside the program directory.
 
 ## Choose a backup destination
 
@@ -54,9 +87,11 @@ The default destination is stored on the same Mac as the Notes database. It can 
 
 `BACKUP_DIR` is the local path where the script writes archives. To select a destination during installation, create the folder first and then pass its path to the installer:
 
+The examples below use the installed `notehold` command. During the first installation from an extracted release, use `./notehold` instead.
+
 ```sh
 BACKUP_DIR="$HOME/Library/CloudStorage/Dropbox/Backups/Apple Notes" \
-  ./scripts/install-launchagent.sh
+  notehold install
 ```
 
 Use the actual path on your Mac rather than copying this example unchanged. You can drag a folder from Finder into Terminal to insert its full path. Cloud providers commonly appear under `~/Library/CloudStorage`, although the exact path depends on the provider and account. If an explicitly selected folder does not exist or is unavailable, the installer stops and asks you to choose or create it instead of silently creating a possibly mistyped path.
@@ -68,43 +103,38 @@ Make sure the destination remains downloaded locally. After creating a test back
 Changing the destination does not move or delete any existing archives. They remain in the old folder unless you copy them yourself.
 
 1. Create or choose the new folder. If it is cloud-synced, make sure it is available locally.
-2. Rerun the installer with the new path. Also repeat any non-default frequency or cleanup settings you use, because the installer regenerates the complete configuration each time:
+2. Rerun the installer with the new path. Other installed settings are preserved:
 
    ```sh
    BACKUP_DIR="$HOME/path/to/your/new-backup-folder" \
-   BACKUP_INTERVAL_DAYS=10 \
-   AUTO_CLEANUP=false \
-     ./scripts/install-launchagent.sh
+     notehold install
    ```
 
 3. Create and verify a backup in the new destination:
 
    ```sh
-   BACKUP_DIR="$HOME/path/to/your/new-backup-folder" \
-     ./scripts/backup-apple-notes.sh --force
+   notehold backup
    ```
 
 4. Confirm that the new folder contains a dated `.zip` file and its adjacent `.zip.sha256` file. For a cloud destination, also confirm that both files finish syncing.
 
-The manual command needs `BACKUP_DIR` because it does not read the destination from the installed LaunchAgent. Once the installer has been rerun, scheduled backups use the new destination automatically.
+Installed manual commands and scheduled backups both use the destination recorded by `notehold install`. An environment value supplied directly to a manual command still overrides the installed value for that one run.
 
 ## Change the backup frequency
 
 The default backup frequency is every 10 days. `BACKUP_INTERVAL_DAYS` sets the minimum number of days between successful backups. Use a positive whole number when installing. For example, to back up every 7 days:
 
 ```sh
-BACKUP_INTERVAL_DAYS=7 ./scripts/install-launchagent.sh
+BACKUP_INTERVAL_DAYS=7 notehold install
 ```
 
 The LaunchAgent still checks once per day and at login; changing this value controls when that check considers the backup stale. A backup might run later than the exact interval if the Mac was shut down, the user was logged out, or the destination was unavailable.
 
-Rerun the installer with the new value whenever you want to change the persistent schedule. Include the destination and cleanup settings again if you customized them, because the installer regenerates the LaunchAgent configuration:
+Rerun the installer with the new value whenever you want to change the persistent schedule. Settings you do not supply are preserved:
 
 ```sh
 BACKUP_INTERVAL_DAYS=14 \
-AUTO_CLEANUP=true \
-BACKUP_DIR="$HOME/path/to/your/backup-folder" \
-  ./scripts/install-launchagent.sh
+  notehold install
 ```
 
 `--force` always creates a backup regardless of this interval. Setting `BACKUP_INTERVAL_DAYS` only for a manual `--if-stale` command changes that one check; rerunning the installer is what makes the value persistent for scheduled checks.
@@ -115,7 +145,7 @@ Archives are never removed by default. To opt into automatically moving redundan
 
 ```sh
 AUTO_CLEANUP=true BACKUP_DIR="$HOME/path/to/your/backup-folder" \
-  ./scripts/install-launchagent.sh
+  notehold install
 ```
 
 Automatic cleanup runs only after a new archive has passed all backup and integrity checks. Only the most recent, 10-day, 30-day, 90-day, 180-day, and 365-day-old backups are retained. Because the Mac may be asleep or the destination unavailable on a target date, these are approximate recovery points rather than exact guarantees. Immediately after a backup, cleanup normally keeps at most six valid pairs: the new archive plus five historical points.
@@ -123,23 +153,25 @@ Automatic cleanup runs only after a new archive has passed all backup and integr
 This option asks Finder to move redundant ZIP and checksum pairs to the Mac Trash. It never falls back to permanent deletion. The files remain recoverable until Trash is emptied, but removing them from a cloud-synced destination will normally sync that removal to the cloud provider. Finder may ask for permission the first time cleanup runs. Before enabling it, preview the policy against your existing archives:
 
 ```sh
-BACKUP_DIR="$HOME/path/to/your/backup-folder" \
-  ./scripts/backup-apple-notes.sh --retention-preview
+notehold retention preview
 ```
 
 Incomplete pairs, invalid checksum metadata, the most recent archive, and any archive that fails checksum verification immediately before cleanup are never moved. Every decision is logged. After one or more pairs are moved to Trash, macOS shows a single summary notification; the log contains the complete filenames. If Finder refuses the move or only part of a pair moves, cleanup reports an error and requires manual attention rather than permanently deleting anything.
 
 ## Files and locations
 
-- Backup script: `scripts/backup-apple-notes.sh`
-- LaunchAgent template: `io.github.apple-notes-backup.plist`
+- Installed command: `~/.local/bin/notehold`
+- Installed program: `~/Library/Application Support/Notehold/current`
+- Versioned program files: `~/Library/Application Support/Notehold/versions/<version>`
+- Backup script: `scripts/notehold-backup.sh`
+- LaunchAgent template: `io.github.rsheyd.notehold.plist`
 - LaunchAgent installer: `scripts/install-launchagent.sh`
-- Installed LaunchAgent: `~/Library/LaunchAgents/io.github.apple-notes-backup.plist`
+- Installed LaunchAgent: `~/Library/LaunchAgents/io.github.rsheyd.notehold.plist`
 - Notes source: `~/Library/Group Containers/group.com.apple.notes`
 - Default archive destination: `~/Backups/Apple Notes`
-- Backup log: `apple-notes-backup.log` inside the configured archive destination
-- Fallback log when the backup folder is unavailable: `~/Library/Logs/apple-notes-backup.log`
-- LaunchAgent output: `~/Library/Logs/apple-notes-backup-launchd.log`
+- Backup log: `notehold.log` inside the configured archive destination
+- Fallback log when the backup folder is unavailable: `~/Library/Logs/notehold.log`
+- LaunchAgent output: `~/Library/Logs/notehold-launchd.log`
 
 Archive names begin with the date, for example `apple-notes-2026-07-10.zip`. Each archive has an adjacent checksum file such as `apple-notes-2026-07-10.zip.sha256`. A timestamp is added if a forced backup is run more than once on the same date.
 
@@ -170,32 +202,40 @@ If the backup destination is unavailable, the error is recorded in the local fal
 
 ## Permissions
 
-`/bin/bash` needs Full Disk Access under **System Settings > Privacy & Security > Full Disk Access** so the background job can read the protected Notes data folder.
+The Notes database is stored in another app's protected data container at `~/Library/Group Containers/group.com.apple.notes`. macOS does not treat it like an ordinary document selected by the user. Backup utilities that read another app's private data require the user to grant Full Disk Access; Notehold cannot grant that permission automatically.
+
+The current command-line version is implemented as shell scripts. `/bin/bash` interprets those scripts, so macOS associates the protected file access with Bash rather than with a graphical app named Notehold. Give `/bin/bash` Full Disk Access under **System Settings > Privacy & Security > Full Disk Access** before the first backup.
+
+In the Full Disk Access file picker, press **Command-Shift-G**, enter `/bin/bash`, and choose **Open**. Make sure the new Bash entry is enabled.
+
+This permission is broader than access for Notehold alone: other scripts run through `/bin/bash` may also be able to read protected files. Notehold uses it to read and archive the local Notes database. Its source is available in this repository for inspection, and the permission can be revoked after running `notehold uninstall`.
+
+Avoiding the Bash permission would require a separately signed executable or Mac app to perform the protected work. That is outside the scope of this command-line release; it would not eliminate the requirement for the user to approve access to the Notes database.
 
 ## Manual commands
 
 Create a backup immediately, regardless of age:
 
 ```sh
-./scripts/backup-apple-notes.sh --force
+notehold backup
 ```
 
 Run only the lightweight age check:
 
 ```sh
-./scripts/backup-apple-notes.sh --if-stale
+notehold check
 ```
 
 Preview which redundant archive pairs the retention policy would remove:
 
 ```sh
-./scripts/backup-apple-notes.sh --retention-preview
+notehold retention preview
 ```
 
 Apply the retention policy once, even when automatic cleanup is disabled:
 
 ```sh
-./scripts/backup-apple-notes.sh --apply-retention
+notehold retention apply
 ```
 
 Applying retention removes eligible pairs from the backup destination by moving them to the Mac Trash. It verifies each archive immediately before the move, logs every moved filename, and sends one summary notification. It never falls back to permanent deletion.
@@ -205,7 +245,7 @@ Applying retention removes eligible pairs from the backup destination by moving 
 Show the installed destination, backup frequency, automatic-cleanup policy, most recent activity, and up to three recent backups:
 
 ```sh
-./scripts/backup-apple-notes.sh --status
+notehold status
 ```
 
 The status command is read-only. It reads configuration from the installed LaunchAgent, reports whether the destination is currently available, and does not print raw launchd environment details.
@@ -213,20 +253,20 @@ The status command is read-only. It reads configuration from the installed Launc
 Inspect recent activity:
 
 ```sh
-tail -50 "$HOME/Backups/Apple Notes/apple-notes-backup.log"
+tail -50 "$HOME/Backups/Apple Notes/notehold.log"
 ```
 
 If the destination was unavailable, inspect the fallback and LaunchAgent logs:
 
 ```sh
-tail -50 ~/Library/Logs/apple-notes-backup.log
-tail -50 ~/Library/Logs/apple-notes-backup-launchd.log
+tail -50 ~/Library/Logs/notehold.log
+tail -50 ~/Library/Logs/notehold-launchd.log
 ```
 
 Inspect the installed service:
 
 ```sh
-launchctl print gui/$(id -u)/io.github.apple-notes-backup
+launchctl print gui/$(id -u)/io.github.rsheyd.notehold
 ```
 
 ## Restoring a backup
@@ -241,7 +281,7 @@ Before starting, make sure the chosen ZIP is fully available locally rather than
 2. Disable the automatic backup job temporarily:
 
    ```sh
-   launchctl bootout gui/$(id -u)/io.github.apple-notes-backup
+   launchctl bootout gui/$(id -u)/io.github.rsheyd.notehold
    ```
 
 3. Set the archive you want to restore and verify it:
@@ -302,19 +342,31 @@ After the current database is back and Notes looks correct, reconnect the networ
 
 ```sh
 launchctl bootstrap gui/$(id -u) \
-  "$HOME/Library/LaunchAgents/io.github.apple-notes-backup.plist"
+  "$HOME/Library/LaunchAgents/io.github.rsheyd.notehold.plist"
 ```
 
 Keep both Desktop safety folders until Notes has synchronized normally and the recovered material is safely stored. A full permanent rollback should begin with an additional fresh backup and is best handled as a supervised recovery rather than by reconnecting the old database directly.
 
 ## Reload or uninstall
 
-After changing the template or installer, rerun `./scripts/install-launchagent.sh` to regenerate and reload the installed job.
+Running `notehold install` again reloads the background job. When installing a newer release, it also switches the active program version while preserving the existing destination, frequency, and cleanup choice unless replacements were supplied.
 
-To disable the job:
+To check which version is active:
 
 ```sh
-launchctl bootout gui/$(id -u)/io.github.apple-notes-backup
+notehold version
 ```
 
-The existing ZIP archives are not removed when the job is disabled.
+To unload the background job and remove the command, LaunchAgent, and all installed program versions:
+
+```sh
+notehold uninstall
+```
+
+Uninstall never removes backup destinations, ZIP archives, checksum files, or logs. The uninstall script only removes a program directory bearing Notehold's installation marker, only removes the `notehold` command when it points to that installation, and only removes the expected LaunchAgent.
+
+If `~/.local/bin` is not on `PATH`, run the command by its full path:
+
+```sh
+~/.local/bin/notehold uninstall
+```

@@ -2,18 +2,13 @@
 
 set -eu
 
-if [ "${1:-}" = "--status" ]; then
-  readonly STATUS_SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
-  exec "$STATUS_SCRIPT_DIR/show-status.sh"
-fi
-
 readonly NOTES_DIR="${NOTES_DIR:-$HOME/Library/Group Containers/group.com.apple.notes}"
 readonly BACKUP_DIR="${BACKUP_DIR:-$HOME/Backups/Apple Notes}"
 readonly FALLBACK_LOG_DIR="$HOME/Library/Logs"
-readonly FALLBACK_LOG_FILE="$FALLBACK_LOG_DIR/apple-notes-backup.log"
-readonly BACKUP_LOG_FILE="$BACKUP_DIR/apple-notes-backup.log"
-readonly LOCK_DIR="${TMPDIR:-/tmp}/io.github.apple-notes-backup.lock"
-readonly STAGING_DIR="${TMPDIR:-/tmp}/io.github.apple-notes-backup-staging"
+readonly FALLBACK_LOG_FILE="$FALLBACK_LOG_DIR/notehold.log"
+readonly BACKUP_LOG_FILE="$BACKUP_DIR/notehold.log"
+readonly LOCK_DIR="${TMPDIR:-/tmp}/io.github.rsheyd.notehold.lock"
+readonly STAGING_DIR="${TMPDIR:-/tmp}/io.github.rsheyd.notehold-staging"
 readonly SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 readonly BACKUP_INTERVAL_DAYS="${BACKUP_INTERVAL_DAYS:-10}"
 readonly AUTO_CLEANUP="${AUTO_CLEANUP:-false}"
@@ -43,7 +38,7 @@ mode="${1:---force}"
 
 if [ "$mode" != "--force" ] && [ "$mode" != "--if-stale" ] \
   && [ "$mode" != "--retention-preview" ] && [ "$mode" != "--apply-retention" ]; then
-  echo "Usage: $0 [--force|--if-stale|--status|--retention-preview|--apply-retention]" >&2
+  echo "Usage: $0 [--force|--if-stale|--retention-preview|--apply-retention]" >&2
   exit 2
 fi
 
