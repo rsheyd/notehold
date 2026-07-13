@@ -29,6 +29,8 @@ Installation loads the background job immediately. On a new installation with no
 
 iCloud keeps Notes synchronized across devices, but synchronization is not the same as keeping independent, dated backups. An accidental edit or deletion can sync to every device. This project gives you ordinary ZIP files that you can inspect, copy, and verify without a proprietary restore tool or repository password.
 
+Time Machine can also protect the Notes database, but it requires separate backup storage, usually an external drive or a supported network destination. If you do not already have that hardware or service, it adds another purchase and setup step. Notehold can instead save portable, dated archives to any folder you choose, including one already synchronized by a cloud-storage service.
+
 For protection from loss or failure of the Mac itself, store the archives somewhere that is copied off the Mac, such as an external drive or a cloud-synced folder. The script verifies each local ZIP and checksum, but it cannot confirm that a cloud provider finished uploading it.
 
 ### Installation details
