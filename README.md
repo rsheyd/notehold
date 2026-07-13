@@ -19,9 +19,6 @@ Archives go to `~/Backups/Apple Notes` by default. You can instead use an extern
   - [Install without Git](#install-without-git)
   - [Update Notehold](#update-notehold)
 - [Configuration](#configuration)
-  - [Backup destination](#backup-destination)
-  - [Backup schedule](#backup-schedule)
-  - [Automatic cleanup](#automatic-cleanup)
 - [How Notehold works](#how-notehold-works)
   - [Backup process](#backup-process)
   - [Full Disk Access](#full-disk-access)
@@ -29,7 +26,6 @@ Archives go to `~/Backups/Apple Notes` by default. You can instead use an extern
   - [Manual commands](#manual-commands)
   - [Status and logs](#status-and-logs)
 - [Recovery](#recovery)
-  - [Restoring a backup](#restoring-a-backup)
 - [Maintenance](#maintenance)
   - [Reload or uninstall](#reload-or-uninstall)
 
@@ -89,81 +85,9 @@ Each release is copied into its own versioned program directory before the activ
 
 ## Configuration
 
-### Backup destination
+By default, Notehold stores archives in `~/Backups/Apple Notes`, creates a backup when the newest successful archive is at least 10 days old, and automatically moves redundant older backups to the Mac Trash.
 
-The default destination is stored on the same Mac as the Notes database. It can help with accidental changes to Notes, but it does not protect against loss, theft, or failure of the Mac's storage. For better protection, use a folder that is copied off the Mac—for example, a locally synced Google Drive, Dropbox, OneDrive, or iCloud Drive folder—or include the destination in another backup system such as Time Machine.
-
-`BACKUP_DIR` is the local path where the script writes archives. To select a destination during installation, create the folder first and then pass its path to the installer:
-
-The examples below use the installed `notehold` command. During the first installation from a clone, use `notehold/notehold` instead; from an extracted release, use `./notehold`.
-
-```sh
-BACKUP_DIR="$HOME/Library/CloudStorage/Dropbox/Backups/Apple Notes" \
-  notehold install
-```
-
-Use the actual path on your Mac rather than copying this example unchanged. You can drag a folder from Finder into Terminal to insert its full path. Cloud providers commonly appear under `~/Library/CloudStorage`, although the exact path depends on the provider and account. If an explicitly selected folder does not exist or is unavailable, the installer stops and asks you to choose or create it instead of silently creating a possibly mistyped path.
-
-Make sure the destination remains downloaded locally. After creating a test backup, confirm that its ZIP and checksum appear on another device or on the provider's website. Cloud sync should not be the only copy when stronger protection is needed, because deletions and corruption can sync too.
-
-#### Change the backup destination
-
-Changing the destination does not move or delete any existing archives. They remain in the old folder unless you copy them yourself.
-
-1. Create or choose the new folder. If it is cloud-synced, make sure it is available locally.
-2. Rerun the installer with the new path. Other installed settings are preserved:
-
-   ```sh
-   BACKUP_DIR="$HOME/path/to/your/new-backup-folder" \
-     notehold install
-   ```
-
-3. Create and verify a backup in the new destination:
-
-   ```sh
-   notehold backup
-   ```
-
-4. Confirm that the new folder contains a dated `.zip` file and its adjacent `.zip.sha256` file. For a cloud destination, also confirm that both files finish syncing.
-
-Installed manual commands and scheduled backups both use the destination recorded by `notehold install`. An environment value supplied directly to a manual command still overrides the installed value for that one run.
-
-### Backup schedule
-
-The default backup frequency is every 10 days. `BACKUP_INTERVAL_DAYS` sets the minimum number of days between successful backups. Use a positive whole number when installing. For example, to back up every 7 days:
-
-```sh
-BACKUP_INTERVAL_DAYS=7 notehold install
-```
-
-The LaunchAgent still checks once per day and at login; changing this value controls when that check considers the backup stale. A backup might run later than the exact interval if the Mac was shut down, the user was logged out, or the destination was unavailable.
-
-Rerun the installer with the new value whenever you want to change the persistent schedule. Settings you do not supply are preserved:
-
-```sh
-BACKUP_INTERVAL_DAYS=14 \
-  notehold install
-```
-
-`--force` always creates a backup regardless of this interval. Setting `BACKUP_INTERVAL_DAYS` only for a manual `--if-stale` command changes that one check; rerunning the installer is what makes the value persistent for scheduled checks.
-
-### Automatic cleanup
-
-Automatic cleanup is enabled by default. To retain every completed archive indefinitely instead, disable it when installing:
-
-```sh
-AUTO_CLEANUP=false notehold install
-```
-
-Automatic cleanup runs only after a new archive has passed all backup and integrity checks. Only the most recent, 10-day, 30-day, 90-day, 180-day, and 365-day-old backups are retained. Because the Mac may be asleep or the destination unavailable on a target date, these are approximate recovery points rather than exact guarantees. Immediately after a backup, cleanup normally keeps at most six valid pairs: the new archive plus five historical points.
-
-Cleanup asks Finder to move redundant ZIP and checksum pairs to the Mac Trash. It never falls back to permanent deletion. The files remain recoverable until Trash is emptied, but removing them from a cloud-synced destination will normally sync that removal to the cloud provider. Finder may ask for permission the first time cleanup runs. You can preview the policy against your existing archives at any time:
-
-```sh
-notehold retention preview
-```
-
-Incomplete pairs, invalid checksum metadata, the most recent archive, and any archive that fails checksum verification immediately before cleanup are never moved. Every decision is logged. After one or more pairs are moved to Trash, macOS shows a single summary notification; the log contains the complete filenames. If Finder refuses the move or only part of a pair moves, cleanup reports an error and requires manual attention rather than permanently deleting anything.
+See [Configuring Notehold](docs/CONFIGURATION.md) to choose another destination, change the schedule, disable automatic cleanup, or preview the retention policy.
 
 ## How Notehold works
 
@@ -285,83 +209,9 @@ launchctl print gui/$(id -u)/io.github.rsheyd.notehold
 
 ## Recovery
 
-### Restoring a backup
+Restoring a backup replaces the complete local Notes database and can interact unpredictably with iCloud. Do not treat it as a selective one-note import or reconnect an old database without understanding the consequences.
 
-Restoring this archive replaces the complete local Notes database; it is not a selective one-note import. Database formats can change between macOS releases, and reconnecting an older database to iCloud can merge or overwrite data in ways that are difficult to predict. The safest use is to open the restored database while offline, recover the notes you need, and then return to the current database.
-
-Before starting, make sure the chosen ZIP is fully available locally rather than only represented by a cloud placeholder. Give Terminal Full Disk Access, just as `/bin/bash` has for the backup job.
-
-### Recovery-first procedure
-
-1. Disconnect the Mac from Wi-Fi and any wired network. This prevents Notes from immediately reconciling the restored database with iCloud.
-2. Disable the automatic backup job temporarily:
-
-   ```sh
-   launchctl bootout gui/$(id -u)/io.github.rsheyd.notehold
-   ```
-
-3. Set the archive you want to restore and verify it:
-
-   ```sh
-   RESTORE_ARCHIVE="$HOME/Backups/Apple Notes/apple-notes-2026-07-10.zip"
-   cd "$(dirname "$RESTORE_ARCHIVE")"
-   shasum -a 256 -c "$(basename "$RESTORE_ARCHIVE").sha256"
-   unzip -t "$RESTORE_ARCHIVE"
-   ```
-
-   Both commands must succeed. A checksum mismatch means the archive has changed since creation and should not be restored without further investigation.
-
-4. Quit Notes and confirm that it is no longer running:
-
-   ```sh
-   osascript -e 'tell application id "com.apple.Notes" to quit'
-   while pgrep -x Notes >/dev/null; do sleep 1; done
-   ```
-
-5. Move the current database aside. Do not delete it:
-
-   ```sh
-   SAFETY_COPY="$HOME/Desktop/group.com.apple.notes.before-restore-$(date +%Y%m%d-%H%M%S)"
-   mv "$HOME/Library/Group Containers/group.com.apple.notes" "$SAFETY_COPY"
-   ```
-
-6. Extract the archived folder back into its original parent directory:
-
-   ```sh
-   ditto -x -k "$RESTORE_ARCHIVE" "$HOME/Library/Group Containers"
-   ```
-
-7. Open Notes while still offline and confirm that the expected notes appear:
-
-   ```sh
-   open -a Notes
-   ```
-
-8. Recover the material you need. For a small number of notes, use **File > Export as > Markdown** or **PDF**, or copy their contents into files outside Notes. Avoid reconnecting this restored database to iCloud unless the intention is a full rollback and the consequences have been considered carefully.
-
-### Returning to the current database
-
-Quit Notes again. Preserve the recovered database for inspection, then put the safety copy back. Replace the example safety-copy path with the exact path created in step 5.
-
-```sh
-osascript -e 'tell application id "com.apple.Notes" to quit'
-while pgrep -x Notes >/dev/null; do sleep 1; done
-
-RECOVERED_COPY="$HOME/Desktop/group.com.apple.notes.recovered-$(date +%Y%m%d-%H%M%S)"
-mv "$HOME/Library/Group Containers/group.com.apple.notes" "$RECOVERED_COPY"
-mv "$HOME/Desktop/group.com.apple.notes.before-restore-YYYYMMDD-HHMMSS" \
-  "$HOME/Library/Group Containers/group.com.apple.notes"
-open -a Notes
-```
-
-After the current database is back and Notes looks correct, reconnect the network and reload the background job:
-
-```sh
-launchctl bootstrap gui/$(id -u) \
-  "$HOME/Library/LaunchAgents/io.github.rsheyd.notehold.plist"
-```
-
-Keep both Desktop safety folders until Notes has synchronized normally and the recovered material is safely stored. A full permanent rollback should begin with an additional fresh backup and is best handled as a supervised recovery rather than by reconnecting the old database directly.
+Follow the offline, recovery-first procedure in [Recovering Apple Notes from a Notehold backup](docs/RECOVERY.md).
 
 ## Maintenance
 
