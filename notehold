@@ -37,9 +37,7 @@ Usage:
   notehold install
   notehold status
   notehold backup
-  notehold check
   notehold retention preview
-  notehold retention apply
   notehold version
   notehold uninstall
   notehold help
@@ -61,22 +59,12 @@ case "$command" in
     load_installed_settings
     exec "$PROJECT_DIR/scripts/notehold-backup.sh" --force
     ;;
-  check)
-    [ "$#" -eq 1 ] || { usage >&2; exit 2; }
-    load_installed_settings
-    exec "$PROJECT_DIR/scripts/notehold-backup.sh" --if-stale
-    ;;
   retention)
     case "${2:-}" in
       preview)
         [ "$#" -eq 2 ] || { usage >&2; exit 2; }
         load_installed_settings
         exec "$PROJECT_DIR/scripts/notehold-backup.sh" --retention-preview
-        ;;
-      apply)
-        [ "$#" -eq 2 ] || { usage >&2; exit 2; }
-        load_installed_settings
-        exec "$PROJECT_DIR/scripts/notehold-backup.sh" --apply-retention
         ;;
       *)
         usage >&2

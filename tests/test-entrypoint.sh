@@ -9,6 +9,14 @@ help_output=$("$NOTEHOLD" help)
 /usr/bin/printf '%s\n' "$help_output" | /usr/bin/grep -Fq 'notehold install'
 /usr/bin/printf '%s\n' "$help_output" | /usr/bin/grep -Fq 'notehold retention preview'
 /usr/bin/printf '%s\n' "$help_output" | /usr/bin/grep -Fq 'notehold uninstall'
+if /usr/bin/printf '%s\n' "$help_output" | /usr/bin/grep -Fq 'notehold check'; then
+  echo "Removed check command still appears in help." >&2
+  exit 1
+fi
+if /usr/bin/printf '%s\n' "$help_output" | /usr/bin/grep -Fq 'notehold retention apply'; then
+  echo "Removed retention apply command still appears in help." >&2
+  exit 1
+fi
 
 version_output=$("$NOTEHOLD" version)
 /usr/bin/printf '%s\n' "$version_output" | /usr/bin/grep -Eq '^Notehold [0-9A-Za-z._-]+$'
@@ -20,6 +28,16 @@ fi
 
 if "$NOTEHOLD" retention unknown >/dev/null 2>&1; then
   echo "Unknown retention command unexpectedly succeeded." >&2
+  exit 1
+fi
+
+if "$NOTEHOLD" check >/dev/null 2>&1; then
+  echo "Removed check command unexpectedly succeeded." >&2
+  exit 1
+fi
+
+if "$NOTEHOLD" retention apply >/dev/null 2>&1; then
+  echo "Removed retention apply command unexpectedly succeeded." >&2
   exit 1
 fi
 

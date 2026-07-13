@@ -1,79 +1,80 @@
 # Recovering Apple Notes from a Notehold backup
 
-Restoring a Notehold archive replaces the complete local Notes database; it is not a selective one-note import. Database formats can change between macOS releases, and reconnecting an older database to iCloud can merge or overwrite data in ways that are difficult to predict. The safest approach is to open the restored database while offline, recover the notes you need, and then return to the current database.
+Restoring a Notehold archive temporarily replaces the complete local Notes database; it is not a selective one-note import. Keep the Mac offline while the older database is open, recover the notes you need, and restore the current database before reconnecting to iCloud.
 
-Before starting, make sure the chosen ZIP is fully available locally rather than represented only by a cloud placeholder. Give Terminal Full Disk Access, just as `/bin/bash` has for the backup job.
+Make sure the chosen ZIP is fully downloaded and give Terminal Full Disk Access before starting.
 
-## Recovery-first procedure
+## Short recovery procedure
 
-1. Disconnect the Mac from Wi-Fi and any wired network. This prevents Notes from immediately reconciling the restored database with iCloud.
-2. Disable the automatic backup job temporarily:
+1. Disconnect the Mac from the internet, temporarily disable Notehold, and quit Notes.
+2. Choose a backup ZIP and verify its checksum and ZIP integrity.
+3. Rename the current `group.com.apple.notes` folder alongside the original in `~/Library/Group Containers`. Do not delete it.
+4. Extract the older `group.com.apple.notes` folder from the ZIP into `~/Library/Group Containers`.
+5. Open Notes while still offline and export or copy the notes you want to recover.
+6. Quit Notes, move the older database aside, and restore the current database's original name.
+7. Confirm the current database works before reconnecting to the internet and re-enabling Notehold.
 
-   ```sh
-   launchctl bootout gui/$(id -u)/io.github.rsheyd.notehold
-   ```
+Do not reconnect an older database to iCloud unless you intentionally want to attempt a complete rollback.
 
-3. Set the archive you want to restore and verify it:
+## Exact commands
 
-   ```sh
-   RESTORE_ARCHIVE="$HOME/Backups/Apple Notes/apple-notes-2026-07-10.zip"
-   cd "$(dirname "$RESTORE_ARCHIVE")"
-   shasum -a 256 -c "$(basename "$RESTORE_ARCHIVE").sha256"
-   unzip -t "$RESTORE_ARCHIVE"
-   ```
+Use the same Terminal window throughout so the paths defined below remain available.
 
-   Both commands must succeed. A checksum mismatch means the archive has changed since creation and should not be restored without further investigation.
+### 1. Disconnect and stop Notehold
 
-4. Quit Notes and confirm that it is no longer running:
+Disconnect Wi-Fi and any wired network, then set the archive path, stop Notehold, verify the backup, and quit Notes:
 
-   ```sh
-   osascript -e 'tell application id "com.apple.Notes" to quit'
-   while pgrep -x Notes >/dev/null; do sleep 1; done
-   ```
+```sh
+NOTES_PARENT="$HOME/Library/Group Containers"
+CURRENT_NOTES="$NOTES_PARENT/group.com.apple.notes"
+RESTORE_ARCHIVE="$HOME/Backups/Apple Notes/apple-notes-2026-07-10.zip"
+SAFETY_COPY="$NOTES_PARENT/group.com.apple.notes.before-restore-$(date +%Y%m%d-%H%M%S)"
+RECOVERED_COPY="$NOTES_PARENT/group.com.apple.notes.recovered-$(date +%Y%m%d-%H%M%S)"
 
-5. Move the current database aside. Do not delete it:
+launchctl bootout gui/$(id -u)/io.github.rsheyd.notehold
+cd "$(dirname "$RESTORE_ARCHIVE")"
+shasum -a 256 -c "$(basename "$RESTORE_ARCHIVE").sha256"
+unzip -t "$RESTORE_ARCHIVE"
 
-   ```sh
-   SAFETY_COPY="$HOME/Desktop/group.com.apple.notes.before-restore-$(date +%Y%m%d-%H%M%S)"
-   mv "$HOME/Library/Group Containers/group.com.apple.notes" "$SAFETY_COPY"
-   ```
+osascript -e 'tell application id "com.apple.Notes" to quit'
+while pgrep -x Notes >/dev/null; do sleep 1; done
+```
 
-6. Extract the archived folder back into its original parent directory:
+Both verification commands must succeed. A checksum mismatch means the archive changed after creation and should not be restored without investigation.
 
-   ```sh
-   ditto -x -k "$RESTORE_ARCHIVE" "$HOME/Library/Group Containers"
-   ```
+### 2. Replace the current database temporarily
 
-7. Open Notes while still offline and confirm that the expected notes appear:
+```sh
+mv "$CURRENT_NOTES" "$SAFETY_COPY"
+ditto -x -k "$RESTORE_ARCHIVE" "$NOTES_PARENT"
+```
 
-   ```sh
-   open -a Notes
-   ```
+### 3. Recover notes while offline
 
-8. Recover the material you need. For a small number of notes, use **File > Export as > Markdown** or **PDF**, or copy their contents into files outside Notes. Avoid reconnecting this restored database to iCloud unless the intention is a full rollback and the consequences have been considered carefully.
+```sh
+open -a Notes
+```
 
-## Return to the current database
+Confirm the expected notes appear, then export or copy what you need outside Notes.
 
-Quit Notes again. Preserve the recovered database for inspection, then put the safety copy back. Replace the example safety-copy path with the exact path created in step 5.
+### 4. Restore the current database
 
 ```sh
 osascript -e 'tell application id "com.apple.Notes" to quit'
 while pgrep -x Notes >/dev/null; do sleep 1; done
 
-RECOVERED_COPY="$HOME/Desktop/group.com.apple.notes.recovered-$(date +%Y%m%d-%H%M%S)"
-mv "$HOME/Library/Group Containers/group.com.apple.notes" "$RECOVERED_COPY"
-mv "$HOME/Desktop/group.com.apple.notes.before-restore-YYYYMMDD-HHMMSS" \
-  "$HOME/Library/Group Containers/group.com.apple.notes"
+mv "$CURRENT_NOTES" "$RECOVERED_COPY"
+mv "$SAFETY_COPY" "$CURRENT_NOTES"
 open -a Notes
 ```
 
-After the current database is back and Notes looks correct, reconnect the network and reload the background job:
+Confirm the current notes are back before reconnecting the network. Then re-enable Notehold:
 
 ```sh
 launchctl bootstrap gui/$(id -u) \
   "$HOME/Library/LaunchAgents/io.github.rsheyd.notehold.plist"
 ```
 
-Keep both Desktop safety folders until Notes has synchronized normally and the recovered material is safely stored. A full permanent rollback should begin with an additional fresh backup and is best handled as a supervised recovery rather than by reconnecting the old database directly.
+Keep the two renamed database folders until Notes has synchronized normally and the recovered material is safely stored.
 
 [Return to the Notehold README](../README.md)

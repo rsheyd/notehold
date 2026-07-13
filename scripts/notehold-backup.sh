@@ -20,10 +20,9 @@ exec >>"$FALLBACK_LOG_FILE" 2>&1
 timestamp() { /bin/date '+%Y-%m-%d %H:%M:%S'; }
 log() { echo "$(timestamp) $*"; }
 
-run_manual_retention() {
-  retention_mode="$1"
+run_retention_preview() {
   set +e
-  retention_output=$("$SCRIPT_DIR/manage-retention.sh" "$retention_mode" 2>&1)
+  retention_output=$("$SCRIPT_DIR/manage-retention.sh" --preview 2>&1)
   retention_status=$?
   set -e
   /usr/bin/printf '%s\n' "$retention_output"
@@ -37,8 +36,8 @@ partial_checksum=""
 mode="${1:---force}"
 
 if [ "$mode" != "--force" ] && [ "$mode" != "--if-stale" ] \
-  && [ "$mode" != "--retention-preview" ] && [ "$mode" != "--apply-retention" ]; then
-  echo "Usage: $0 [--force|--if-stale|--retention-preview|--apply-retention]" >&2
+  && [ "$mode" != "--retention-preview" ]; then
+  echo "Usage: $0 [--force|--if-stale|--retention-preview]" >&2
   exit 2
 fi
 
@@ -100,12 +99,7 @@ fi
 exec >>"$BACKUP_LOG_FILE" 2>&1
 
 if [ "$mode" = "--retention-preview" ]; then
-  run_manual_retention --preview
-  exit 0
-fi
-
-if [ "$mode" = "--apply-retention" ]; then
-  run_manual_retention --apply
+  run_retention_preview
   exit 0
 fi
 
@@ -165,37 +159,6 @@ partial_checksum="$checksum_file.partial"
 /usr/bin/printf '%s  %s\n' "$checksum" "$(/usr/bin/basename "$archive")" >"$partial_checksum"
 /bin/mv "$partial_checksum" "$checksum_file"
 partial_checksum=""
-
-random_archive=$(
-  /usr/bin/find "$BACKUP_DIR" -maxdepth 1 -type f -name 'apple-notes-*.zip' ! -path "$archive" -print |
-    /usr/bin/awk 'BEGIN { srand() } { if (rand() < 1 / NR) selected=$0 } END { print selected }'
-)
-
-if [ -z "$random_archive" ]; then
-  random_archive="$archive"
-fi
-
-log "Random integrity test: $(/usr/bin/basename "$random_archive")."
-
-random_checksum_file="$random_archive.sha256"
-if [ ! -f "$random_checksum_file" ]; then
-  log "ERROR: stored checksum is missing for $(/usr/bin/basename "$random_archive")."
-  exit 1
-fi
-
-expected_checksum=$(/usr/bin/awk 'NR == 1 { print $1 }' "$random_checksum_file")
-if ! /usr/bin/printf '%s\n' "$expected_checksum" | /usr/bin/grep -Eq '^[[:xdigit:]]{64}$'; then
-  log "ERROR: stored checksum is invalid for $(/usr/bin/basename "$random_archive")."
-  exit 1
-fi
-
-actual_checksum=$(/usr/bin/shasum -a 256 "$random_archive" | /usr/bin/awk '{print $1}')
-if [ "$actual_checksum" != "$expected_checksum" ]; then
-  log "ERROR: checksum mismatch for $(/usr/bin/basename "$random_archive")."
-  exit 1
-fi
-log "Checksum verified for $(/usr/bin/basename "$random_archive")."
-/usr/bin/unzip -tqq "$random_archive"
 
 size=$(/usr/bin/du -h "$archive" | /usr/bin/awk '{print $1}')
 log "Backup complete: $(/usr/bin/basename "$archive") ($size, SHA-256 $checksum)."
