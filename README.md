@@ -11,8 +11,9 @@ First, give `/bin/bash` Full Disk Access in **System Settings > Privacy & Securi
 ```sh
 git clone https://github.com/rsheyd/notehold.git
 notehold/notehold install
-~/.local/bin/notehold backup
 ```
+
+Installation loads the background job immediately. On a new installation with no completed archive, the first backup starts automatically.
 
 ## Contents
 
@@ -32,11 +33,11 @@ For protection from loss or failure of the Mac itself, store the archives somewh
 
 ### Installation details
 
-Installation starts the daily background check. When a backup is needed, Notehold briefly closes Notes to create a consistent archive, then reopens it if it was previously open.
+The background job checks immediately, at login, and approximately once a day. When a backup is needed, Notehold briefly closes Notes to create a consistent archive, then reopens it if it was previously open.
 
 Backups are saved in `~/Backups/Apple Notes` by default, and redundant older backups are automatically moved to the Mac Trash according to the retention policy.
 
-The installer adds `~/.local/bin` to `PATH`, so `notehold` is available from any directory in new Terminal windows.
+The installer adds `~/.local/bin` to `PATH`, so `notehold` is available from any directory in new terminal sessions.
 
 ### Install without Git
 
@@ -63,7 +64,7 @@ If you installed without Git, download the newer archive from the [releases page
 
 The Notes database is stored in another app's protected data container at `~/Library/Group Containers/group.com.apple.notes`. macOS does not treat it like an ordinary document selected by the user. Backup utilities that read another app's private data require the user to grant Full Disk Access; Notehold cannot grant that permission automatically.
 
-The current command-line version is implemented as shell scripts. `/bin/bash` interprets those scripts, so macOS associates the protected file access with Bash rather than with a graphical app named Notehold. Give `/bin/bash` Full Disk Access under **System Settings > Privacy & Security > Full Disk Access** before the first backup.
+The automatic background job runs Notehold's shell scripts through `/bin/bash`, so Bash needs Full Disk Access. Give `/bin/bash` Full Disk Access under **System Settings > Privacy & Security > Full Disk Access** before installation.
 
 In the Full Disk Access file picker, press **Command-Shift-G**, enter `/bin/bash`, and choose **Open**. Make sure the new Bash entry is enabled.
 
@@ -77,6 +78,8 @@ Avoiding the Bash permission would require a separately signed executable or Mac
 - `notehold status` shows the installed settings, service state, latest activity, and recent backups.
 - `notehold version` shows the installed version.
 - `notehold uninstall` removes Notehold without removing backups or logs.
+
+Running `notehold backup` manually requires Full Disk Access for the terminal app running the command, such as Apple's built-in Terminal or a third-party app such as iTerm2. `notehold status`, `notehold version`, and `notehold uninstall` do not require terminal-app Full Disk Access. Automatic backups run through `/bin/bash`, which requires its own Full Disk Access entry.
 
 ## Documentation
 
