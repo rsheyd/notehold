@@ -39,7 +39,7 @@ fi
 if [ -n "${AUTO_CLEANUP+x}" ]; then
   AUTO_CLEANUP_SETTING="$AUTO_CLEANUP"
 else
-  AUTO_CLEANUP_SETTING=$(read_installed_setting AUTO_CLEANUP false)
+  AUTO_CLEANUP_SETTING=$(read_installed_setting AUTO_CLEANUP true)
 fi
 readonly BACKUP_DESTINATION BACKUP_INTERVAL_SETTING AUTO_CLEANUP_SETTING
 

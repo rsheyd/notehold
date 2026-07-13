@@ -22,4 +22,18 @@ fi
 /usr/bin/grep -Fq "Choose an existing folder or create this folder, then run the installer again." "$work_dir/output.log"
 test ! -e "$missing_destination"
 
+# New installations enable automatic cleanup by default, but an explicit
+# setting remains available and is preserved on subsequent installations.
+default_home="$work_dir/default-home"
+default_plist="$default_home/Library/LaunchAgents/io.github.rsheyd.notehold.plist"
+HOME="$default_home" NOTEHOLD_SKIP_LAUNCHCTL_FOR_TESTS=true "$INSTALLER" >/dev/null
+test "$(/usr/bin/plutil -extract EnvironmentVariables.AUTO_CLEANUP raw -o - "$default_plist")" = "true"
+
+HOME="$default_home" AUTO_CLEANUP=false NOTEHOLD_SKIP_LAUNCHCTL_FOR_TESTS=true \
+  "$INSTALLER" >/dev/null
+test "$(/usr/bin/plutil -extract EnvironmentVariables.AUTO_CLEANUP raw -o - "$default_plist")" = "false"
+
+HOME="$default_home" NOTEHOLD_SKIP_LAUNCHCTL_FOR_TESTS=true "$INSTALLER" >/dev/null
+test "$(/usr/bin/plutil -extract EnvironmentVariables.AUTO_CLEANUP raw -o - "$default_plist")" = "false"
+
 echo "Installer tests passed."

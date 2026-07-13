@@ -11,7 +11,7 @@ readonly LOCK_DIR="${TMPDIR:-/tmp}/io.github.rsheyd.notehold.lock"
 readonly STAGING_DIR="${TMPDIR:-/tmp}/io.github.rsheyd.notehold-staging"
 readonly SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 readonly BACKUP_INTERVAL_DAYS="${BACKUP_INTERVAL_DAYS:-10}"
-readonly AUTO_CLEANUP="${AUTO_CLEANUP:-false}"
+readonly AUTO_CLEANUP="${AUTO_CLEANUP:-true}"
 
 mkdir -p "$FALLBACK_LOG_DIR"
 exec 3>&1

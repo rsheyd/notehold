@@ -28,7 +28,7 @@ read_setting() {
 
 backup_dir=$(read_setting BACKUP_DIR "$HOME/Backups/Apple Notes")
 backup_interval=$(read_setting BACKUP_INTERVAL_DAYS 10)
-auto_cleanup=$(read_setting AUTO_CLEANUP false)
+auto_cleanup=$(read_setting AUTO_CLEANUP true)
 
 if [ -n "${STATUS_SERVICE_LOADED_FOR_TESTS+x}" ]; then
   service_loaded="$STATUS_SERVICE_LOADED_FOR_TESTS"
