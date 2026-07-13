@@ -14,18 +14,18 @@ trap cleanup EXIT HUP INT TERM
 
 test_home="$work_dir/home"
 install_root="$work_dir/Notehold"
-bin_dir="$work_dir/bin"
+bin_dir="$test_home/.local/bin"
 backup_dir="$work_dir/backups"
 plist="$test_home/Library/LaunchAgents/io.github.rsheyd.notehold.plist"
+zprofile="$test_home/.zprofile"
 /bin/mkdir -p "$test_home" "$backup_dir"
+/usr/bin/printf 'export EDITOR=vim\n' >"$zprofile"
 /usr/bin/printf 'archive must survive uninstall\n' >"$backup_dir/apple-notes-keep.zip"
 
 run_notehold() {
   HOME="$test_home" \
     NOTEHOLD_INSTALL_ROOT="$install_root" \
-    NOTEHOLD_BIN_DIR="$bin_dir" \
     NOTEHOLD_SKIP_LAUNCHCTL_FOR_TESTS=true \
-    PATH="$bin_dir:${PATH:-}" \
     "$@"
 }
 
@@ -35,12 +35,15 @@ install_output=$(
 )
 
 /usr/bin/printf '%s\n' "$install_output" | /usr/bin/grep -Fq "Version: $SOURCE_VERSION"
+/usr/bin/printf '%s\n' "$install_output" | /usr/bin/grep -Fq "Shell PATH: added $bin_dir to $zprofile for future Terminal windows"
 test -f "$install_root/.notehold-install"
 test -x "$install_root/versions/$SOURCE_VERSION/notehold"
 test -x "$install_root/versions/$SOURCE_VERSION/scripts/notehold-backup.sh"
 test "$(/usr/bin/readlink "$install_root/current")" = "versions/$SOURCE_VERSION"
 test "$(/usr/bin/readlink "$bin_dir/notehold")" = "$install_root/current/notehold"
 test "$(run_notehold "$bin_dir/notehold" version)" = "Notehold $SOURCE_VERSION"
+test "$(/usr/bin/grep -Fxc 'export EDITOR=vim' "$zprofile")" = "1"
+test "$(/usr/bin/grep -Fxc 'export PATH="$HOME/.local/bin:$PATH"' "$zprofile")" = "1"
 
 program_path=$(/usr/bin/plutil -extract ProgramArguments.0 raw -o - "$plist")
 test "$program_path" = "$install_root/current/scripts/notehold-backup.sh"
@@ -54,6 +57,7 @@ test -f "$backup_dir/notehold.log"
 
 # Installing the same immutable version again is safe and idempotent.
 run_notehold "$bin_dir/notehold" install >/dev/null
+test "$(/usr/bin/grep -Fxc 'export PATH="$HOME/.local/bin:$PATH"' "$zprofile")" = "1"
 
 # Reusing a released version number for different files is refused.
 conflicting_source="$work_dir/conflicting-source"
@@ -73,6 +77,7 @@ upgrade_source="$work_dir/upgrade-source"
 upgrade_version="${SOURCE_VERSION}.1"
 /usr/bin/printf '%s\n' "$upgrade_version" >"$upgrade_source/VERSION"
 run_notehold "$upgrade_source/notehold" install >/dev/null
+test "$(/usr/bin/grep -Fxc 'export PATH="$HOME/.local/bin:$PATH"' "$zprofile")" = "1"
 
 test "$(/usr/bin/readlink "$install_root/current")" = "versions/$upgrade_version"
 test -d "$install_root/versions/$SOURCE_VERSION"

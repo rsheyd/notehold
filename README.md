@@ -8,6 +8,8 @@ Notehold does not include a conventional Mac app or graphical interface. Install
 
 Source: [github.com/rsheyd/notehold](https://github.com/rsheyd/notehold)
 
+Development and release instructions are in [CONTRIBUTING.md](CONTRIBUTING.md).
+
 Archives go to `~/Backups/Apple Notes` by default. You can instead use an external drive or a folder synced by Dropbox, Google Drive, OneDrive, or iCloud Drive.
 
 ## Contents
@@ -15,7 +17,6 @@ Archives go to `~/Backups/Apple Notes` by default. You can instead use an extern
 - [Getting started](#getting-started)
   - [Quick start](#quick-start)
   - [Install without Git](#install-without-git)
-  - [Run `notehold` from anywhere](#run-notehold-from-anywhere)
   - [Update Notehold](#update-notehold)
 - [Configuration](#configuration)
   - [Backup destination](#backup-destination)
@@ -59,6 +60,10 @@ For protection from loss or failure of the Mac itself, store the archives somewh
 
 Installation starts the daily background check. When a backup is needed, Notehold briefly closes Notes to create a consistent archive, then reopens it if it was previously open.
 
+Backups are saved in `~/Backups/Apple Notes` by default, and redundant older backups are automatically moved to the Mac Trash to limit storage growth.
+
+The installer adds `~/.local/bin` to `PATH`, so `notehold` is available from any directory in new Terminal windows.
+
 ### Install without Git
 
 If the `git` command is unavailable and you do not want to install Apple's Command Line Tools, download and extract the latest `notehold-VERSION.tar.gz` file from the [Notehold releases](https://github.com/rsheyd/notehold/releases) page. In Terminal, change to the extracted directory and run:
@@ -68,23 +73,6 @@ If the `git` command is unavailable and you do not want to install Apple's Comma
 ```
 
 Give `/bin/bash` Full Disk Access before installation, just as described in the main [Quick start](#quick-start). The extracted directory is no longer needed after installation.
-
-### Run `notehold` from anywhere
-
-The installed command lives at `~/.local/bin/notehold`. If the installer warns that `~/.local/bin` is not on `PATH`, add it for the default macOS shell and start a new login shell:
-
-```sh
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zprofile
-exec zsh -l
-```
-
-Confirm that the command is available:
-
-```sh
-command -v notehold
-```
-
-You can then use commands such as `notehold backup` from any directory. Without this optional setup, use the full path, such as `~/.local/bin/notehold backup`.
 
 ### Update Notehold
 
@@ -182,6 +170,7 @@ Incomplete pairs, invalid checksum metadata, the most recent archive, and any ar
 ### Files and locations
 
 - Installed command: `~/.local/bin/notehold`
+- Shell PATH configuration: `~/.zprofile` when `~/.local/bin` is not already available
 - Installed program: `~/Library/Application Support/Notehold/current`
 - Versioned program files: `~/Library/Application Support/Notehold/versions/<version>`
 - Backup script: `scripts/notehold-backup.sh`
@@ -393,6 +382,8 @@ notehold uninstall
 ```
 
 Uninstall never removes backup destinations, ZIP archives, checksum files, or logs. The uninstall script only removes a program directory bearing Notehold's installation marker, only removes the `notehold` command when it points to that installation, and only removes the expected LaunchAgent.
+
+The generic `~/.local/bin` entry remains in `~/.zprofile` after uninstall because other command-line tools may also use that directory.
 
 If `~/.local/bin` is not on `PATH`, run the command by its full path:
 

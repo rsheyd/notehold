@@ -11,6 +11,8 @@ readonly CURRENT_LINK="$INSTALL_ROOT/current"
 readonly BIN_DIR="${NOTEHOLD_BIN_DIR:-$HOME/.local/bin}"
 readonly COMMAND_LINK="$BIN_DIR/notehold"
 readonly MARKER_FILE="$INSTALL_ROOT/.notehold-install"
+readonly ZPROFILE="$HOME/.zprofile"
+readonly PATH_LINE='export PATH="$HOME/.local/bin:$PATH"'
 readonly PAYLOAD_FILES=(
   VERSION
   notehold
@@ -116,14 +118,41 @@ fi
 
 "$CURRENT_LINK/scripts/install-launchagent.sh"
 
+path_configured=false
+path_warning_printed=false
+case ":${PATH:-}:" in
+  *":$BIN_DIR:"*) path_configured=true ;;
+esac
+
+if [ "$BIN_DIR" = "$HOME/.local/bin" ] && [ "$path_configured" = "false" ]; then
+  if [ -e "$ZPROFILE" ] && [ ! -f "$ZPROFILE" ]; then
+    echo >&2
+    echo "Warning: $ZPROFILE is not a regular file, so Notehold could not add $BIN_DIR to PATH." >&2
+    path_warning_printed=true
+  elif [ -f "$ZPROFILE" ] && /usr/bin/grep -Fqx "$PATH_LINE" "$ZPROFILE"; then
+    path_configured=true
+  else
+    if {
+      if [ -s "$ZPROFILE" ]; then
+        /usr/bin/printf '\n' >>"$ZPROFILE"
+      fi
+      /usr/bin/printf '%s\n' '# Added by Notehold' "$PATH_LINE" >>"$ZPROFILE"
+    } 2>/dev/null; then
+      path_configured=true
+      echo "  Shell PATH: added $BIN_DIR to $ZPROFILE for future Terminal windows"
+    else
+      echo >&2
+      echo "Warning: Notehold could not update $ZPROFILE to add $BIN_DIR to PATH." >&2
+      path_warning_printed=true
+    fi
+  fi
+fi
+
 echo "  Version: $version"
 echo "  Command: $COMMAND_LINK"
 echo "  Program files: $RELEASE_DIR"
-case ":${PATH:-}:" in
-  *":$BIN_DIR:"*) ;;
-  *)
-    echo
-    echo "Warning: $BIN_DIR is not currently on PATH."
-    echo "Add it to PATH before running notehold from another directory."
-    ;;
-esac
+if [ "$path_configured" = "false" ] && [ "$path_warning_printed" = "false" ]; then
+  echo
+  echo "Warning: $BIN_DIR is not currently on PATH."
+  echo "Add it to PATH before running notehold from another directory."
+fi
