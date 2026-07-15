@@ -33,13 +33,3 @@ scripts/publish-release.sh --publish
 The helper requires a clean `main` synchronized with `origin/main`. It runs the complete test suite; creates and pushes the annotated tag; builds the archive from that tag; creates or resumes the draft GitHub Release; uploads and downloads the archive and checksum; and verifies the checksum and extracted version before publishing. It is safe to rerun after an interrupted release as long as the existing tag points to the current commit.
 
 Published tags are immutable. If a correction is needed after publishing, increment `VERSION` and create another release instead of moving an existing tag.
-
-### Releasing with Codex
-
-Use this prompt from the Notehold workspace:
-
-```text
-Publish the version in VERSION to GitHub Releases. Review the release diff, run the tests, commit and push the release-ready changes if needed, then run scripts/publish-release.sh --publish and verify the published assets.
-```
-
-Codex should still summarize the release contents before committing and should not reuse an existing published version number.
