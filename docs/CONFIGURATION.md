@@ -5,6 +5,7 @@ Notehold defaults to:
 - Backup destination: `~/Backups/Apple Notes`
 - Backup interval: 10 days
 - Automatic cleanup: enabled
+- Email notifications: disabled
 
 Rerun `notehold install` with one of the settings below to change it. Settings you do not supply are preserved.
 
@@ -47,5 +48,28 @@ notehold retention preview
 ```
 
 The newest archive, incomplete pairs, invalid checksum metadata, and archives that fail checksum verification are never moved.
+
+## Email notifications with Resend
+
+Notehold can send an email after it creates and verifies a new backup, and whenever a backup attempt fails. Daily checks that find a recent backup do not send email. A notification-delivery problem is recorded in the backup log but does not invalidate or remove a completed archive.
+
+Create a Resend sending API key and make it available to the current shell as `RESEND_NOTEHOLD_API_TOKEN`. Then configure the destination and sender:
+
+```sh
+RESEND_NOTEHOLD_API_TOKEN="$RESEND_NOTEHOLD_API_TOKEN" \
+RESEND_EMAIL_TO="you@example.com" \
+RESEND_EMAIL_FROM="Notehold <onboarding@resend.dev>" \
+notehold install
+```
+
+During installation, Notehold copies the API key to the login Keychain. The background LaunchAgent does not read `.zshrc`, and the API key is not stored in the LaunchAgent. Later upgrades reuse the Keychain entry, so the token variable is needed only when initially configuring or replacing the key.
+
+The destination and sender are stored in the LaunchAgent. Resend's `onboarding@resend.dev` sender can send only to the email associated with the Resend account. To send elsewhere, verify a domain in Resend and use an address on that domain, such as `Notehold <backups@updates.example.com>`.
+
+To disable email while preserving the Keychain entry:
+
+```sh
+RESEND_EMAIL_TO="" RESEND_EMAIL_FROM="" notehold install
+```
 
 [Return to the Notehold README](../README.md)

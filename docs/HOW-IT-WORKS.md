@@ -9,8 +9,11 @@ Notehold installs a user LaunchAgent that checks at login and approximately once
 3. Move the completed ZIP into the destination and write an adjacent SHA-256 checksum.
 4. If cleanup is enabled, verify and move redundant archive/checksum pairs to Trash.
 5. Reopen Notes if it was open before the backup.
+6. If configured, ask Resend to email the result after a successful new backup or a failed attempt.
 
 A lock prevents overlapping runs. Partial archives and checksums are removed after errors, so the destination receives only completed backups.
+
+When `notehold backup` runs in an interactive terminal, it displays milestone messages and an elapsed-time spinner during archive creation. The LaunchAgent does not emit this terminal display.
 
 ## Sleeping and failures
 
@@ -30,6 +33,7 @@ Each release is copied into a versioned directory before the stable `current` li
 - Backup log: `notehold.log` in the configured destination
 - Fallback log: `~/Library/Logs/notehold.log`
 - LaunchAgent output: `~/Library/Logs/notehold-launchd.log`
+- Resend API key: the login Keychain item `io.github.rsheyd.notehold.resend` (only when email is configured)
 
 ## Troubleshooting
 
@@ -43,6 +47,12 @@ For the default destination, inspect recent backup activity with:
 
 ```sh
 tail -50 "$HOME/Backups/Apple Notes/notehold.log"
+```
+
+List all completed backups in the configured destination with:
+
+```sh
+notehold list
 ```
 
 If the destination was unavailable, inspect:

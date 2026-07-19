@@ -29,6 +29,14 @@ load_installed_settings() {
     AUTO_CLEANUP=$(/usr/bin/plutil -extract EnvironmentVariables.AUTO_CLEANUP raw -o - "$INSTALLED_PLIST" 2>/dev/null || true)
     [ -n "$AUTO_CLEANUP" ] && export AUTO_CLEANUP
   fi
+  if [ -z "${RESEND_EMAIL_TO+x}" ]; then
+    RESEND_EMAIL_TO=$(/usr/bin/plutil -extract EnvironmentVariables.RESEND_EMAIL_TO raw -o - "$INSTALLED_PLIST" 2>/dev/null || true)
+    [ -n "$RESEND_EMAIL_TO" ] && export RESEND_EMAIL_TO
+  fi
+  if [ -z "${RESEND_EMAIL_FROM+x}" ]; then
+    RESEND_EMAIL_FROM=$(/usr/bin/plutil -extract EnvironmentVariables.RESEND_EMAIL_FROM raw -o - "$INSTALLED_PLIST" 2>/dev/null || true)
+    [ -n "$RESEND_EMAIL_FROM" ] && export RESEND_EMAIL_FROM
+  fi
 }
 
 usage() {
@@ -36,6 +44,7 @@ usage() {
 Usage:
   notehold install
   notehold status
+  notehold list
   notehold backup
   notehold retention preview
   notehold version
@@ -53,6 +62,11 @@ case "$command" in
   status)
     [ "$#" -eq 1 ] || { usage >&2; exit 2; }
     exec "$PROJECT_DIR/scripts/show-status.sh"
+    ;;
+  list)
+    [ "$#" -eq 1 ] || { usage >&2; exit 2; }
+    load_installed_settings
+    exec "$PROJECT_DIR/scripts/list-backups.sh"
     ;;
   backup)
     [ "$#" -eq 1 ] || { usage >&2; exit 2; }

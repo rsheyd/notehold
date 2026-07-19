@@ -19,6 +19,10 @@
         <string>10</string>
         <key>AUTO_CLEANUP</key>
 		<string>true</string>
+        <key>RESEND_EMAIL_TO</key>
+        <string></string>
+        <key>RESEND_EMAIL_FROM</key>
+        <string></string>
     </dict>
 
     <key>RunAtLoad</key>

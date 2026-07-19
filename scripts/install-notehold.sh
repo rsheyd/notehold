@@ -19,8 +19,10 @@ readonly PAYLOAD_FILES=(
   io.github.rsheyd.notehold.plist
   scripts/install-notehold.sh
   scripts/install-launchagent.sh
+  scripts/list-backups.sh
   scripts/manage-retention.sh
   scripts/notehold-backup.sh
+  scripts/send-email.sh
   scripts/show-status.sh
   scripts/uninstall-notehold.sh
 )

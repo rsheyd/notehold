@@ -7,6 +7,7 @@ readonly NOTEHOLD="$PROJECT_DIR/notehold"
 
 help_output=$("$NOTEHOLD" help)
 /usr/bin/printf '%s\n' "$help_output" | /usr/bin/grep -Fq 'notehold install'
+/usr/bin/printf '%s\n' "$help_output" | /usr/bin/grep -Fq 'notehold list'
 /usr/bin/printf '%s\n' "$help_output" | /usr/bin/grep -Fq 'notehold retention preview'
 /usr/bin/printf '%s\n' "$help_output" | /usr/bin/grep -Fq 'notehold uninstall'
 if /usr/bin/printf '%s\n' "$help_output" | /usr/bin/grep -Fq 'notehold check'; then

@@ -31,6 +31,8 @@ run_notehold() {
 
 install_output=$(
   BACKUP_DIR="$backup_dir" BACKUP_INTERVAL_DAYS=7 AUTO_CLEANUP=true \
+    RESEND_EMAIL_TO="s.roman@gmail.com" \
+    RESEND_EMAIL_FROM="Notehold <onboarding@resend.dev>" \
     run_notehold "$PROJECT_DIR/notehold" install
 )
 
@@ -50,6 +52,8 @@ test "$program_path" = "$install_root/current/scripts/notehold-backup.sh"
 test "$(/usr/bin/plutil -extract EnvironmentVariables.BACKUP_DIR raw -o - "$plist")" = "$backup_dir"
 test "$(/usr/bin/plutil -extract EnvironmentVariables.BACKUP_INTERVAL_DAYS raw -o - "$plist")" = "7"
 test "$(/usr/bin/plutil -extract EnvironmentVariables.AUTO_CLEANUP raw -o - "$plist")" = "true"
+test "$(/usr/bin/plutil -extract EnvironmentVariables.RESEND_EMAIL_TO raw -o - "$plist")" = "s.roman@gmail.com"
+test "$(/usr/bin/plutil -extract EnvironmentVariables.RESEND_EMAIL_FROM raw -o - "$plist")" = "Notehold <onboarding@resend.dev>"
 
 # Manual commands inherit the installed destination without repeating BACKUP_DIR.
 NOTIFY_RETENTION=false run_notehold "$bin_dir/notehold" retention preview >/dev/null
@@ -87,6 +91,8 @@ test "$(/usr/bin/plutil -extract ProgramArguments.0 raw -o - "$plist")" = "$inst
 test "$(/usr/bin/plutil -extract EnvironmentVariables.BACKUP_DIR raw -o - "$plist")" = "$backup_dir"
 test "$(/usr/bin/plutil -extract EnvironmentVariables.BACKUP_INTERVAL_DAYS raw -o - "$plist")" = "7"
 test "$(/usr/bin/plutil -extract EnvironmentVariables.AUTO_CLEANUP raw -o - "$plist")" = "true"
+test "$(/usr/bin/plutil -extract EnvironmentVariables.RESEND_EMAIL_TO raw -o - "$plist")" = "s.roman@gmail.com"
+test "$(/usr/bin/plutil -extract EnvironmentVariables.RESEND_EMAIL_FROM raw -o - "$plist")" = "Notehold <onboarding@resend.dev>"
 
 uninstall_output=$(run_notehold "$bin_dir/notehold" uninstall)
 /usr/bin/printf '%s\n' "$uninstall_output" | /usr/bin/grep -Fq 'Backup archives, checksums, destinations, and logs were not removed.'

@@ -9,6 +9,7 @@ readonly SOURCE_PLIST="$PROJECT_DIR/$LABEL.plist"
 readonly INSTALL_DIR="$HOME/Library/LaunchAgents"
 readonly INSTALLED_PLIST="$INSTALL_DIR/$LABEL.plist"
 readonly LOG_FILE="$HOME/Library/Logs/notehold-launchd.log"
+readonly KEYCHAIN_SERVICE="io.github.rsheyd.notehold.resend"
 
 read_installed_setting() {
   key="$1"
@@ -41,7 +42,17 @@ if [ -n "${AUTO_CLEANUP+x}" ]; then
 else
   AUTO_CLEANUP_SETTING=$(read_installed_setting AUTO_CLEANUP true)
 fi
-readonly BACKUP_DESTINATION BACKUP_INTERVAL_SETTING AUTO_CLEANUP_SETTING
+if [ -n "${RESEND_EMAIL_TO+x}" ]; then
+  EMAIL_TO_SETTING="$RESEND_EMAIL_TO"
+else
+  EMAIL_TO_SETTING=$(read_installed_setting RESEND_EMAIL_TO "")
+fi
+if [ -n "${RESEND_EMAIL_FROM+x}" ]; then
+  EMAIL_FROM_SETTING="$RESEND_EMAIL_FROM"
+else
+  EMAIL_FROM_SETTING=$(read_installed_setting RESEND_EMAIL_FROM "")
+fi
+readonly BACKUP_DESTINATION BACKUP_INTERVAL_SETTING AUTO_CLEANUP_SETTING EMAIL_TO_SETTING EMAIL_FROM_SETTING
 
 if [ "$backup_destination_was_explicit" = "true" ] && [ ! -d "$BACKUP_DESTINATION" ]; then
   echo "Backup destination was not found: $BACKUP_DESTINATION" >&2
@@ -63,6 +74,21 @@ esac
 if [ "$BACKUP_INTERVAL_SETTING" -lt 1 ]; then
   echo "BACKUP_INTERVAL_DAYS must be at least 1." >&2
   exit 2
+fi
+
+if [ -n "${RESEND_NOTEHOLD_API_TOKEN:-}" ]; then
+  case "$RESEND_NOTEHOLD_API_TOKEN" in
+    re_*) ;;
+    *)
+      echo "RESEND_NOTEHOLD_API_TOKEN must be a Resend API key beginning with re_." >&2
+      exit 2
+      ;;
+  esac
+  /usr/bin/security add-generic-password \
+    -U \
+    -a "$(/usr/bin/id -un)" \
+    -s "$KEYCHAIN_SERVICE" \
+    -w "$RESEND_NOTEHOLD_API_TOKEN" >/dev/null
 fi
 
 /bin/mkdir -p "$INSTALL_DIR"
@@ -98,6 +124,8 @@ trap cleanup EXIT HUP INT TERM
 /usr/bin/plutil -replace EnvironmentVariables.BACKUP_DIR -string "$BACKUP_DESTINATION" "$temporary_plist"
 /usr/bin/plutil -replace EnvironmentVariables.BACKUP_INTERVAL_DAYS -string "$BACKUP_INTERVAL_SETTING" "$temporary_plist"
 /usr/bin/plutil -replace EnvironmentVariables.AUTO_CLEANUP -string "$AUTO_CLEANUP_SETTING" "$temporary_plist"
+/usr/bin/plutil -replace EnvironmentVariables.RESEND_EMAIL_TO -string "$EMAIL_TO_SETTING" "$temporary_plist"
+/usr/bin/plutil -replace EnvironmentVariables.RESEND_EMAIL_FROM -string "$EMAIL_FROM_SETTING" "$temporary_plist"
 /usr/bin/plutil -replace StandardOutPath -string "$LOG_FILE" "$temporary_plist"
 /usr/bin/plutil -replace StandardErrorPath -string "$LOG_FILE" "$temporary_plist"
 /usr/bin/plutil -lint "$temporary_plist" >/dev/null
@@ -121,3 +149,8 @@ else
   echo "  Automatic cleanup: false (backups are retained indefinitely)"
 fi
 echo "  Background check: at login and approximately once every 24 hours"
+if [ -n "$EMAIL_TO_SETTING" ]; then
+  echo "  Email notifications: $EMAIL_TO_SETTING"
+else
+  echo "  Email notifications: disabled"
+fi

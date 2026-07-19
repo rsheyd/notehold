@@ -39,6 +39,12 @@ For protection from loss or failure of the Mac itself, store the archives somewh
 
 The background job checks immediately, at login, and approximately once a day. When a backup is needed, Notehold briefly closes Notes to create a consistent archive, then reopens it if it was previously open.
 
+Optional Resend email notifications report every newly completed backup and every failed backup attempt. Checks that determine no backup is needed remain quiet, and the API key stays in macOS Keychain.
+
+To enable email, create a [Resend account](https://resend.com), create a sending API key, expose it to the current shell as `RESEND_NOTEHOLD_API_TOKEN`, and run `notehold install` with the destination and sender described in [Configuration](docs/CONFIGURATION.md). Installation copies the key into macOS Keychain because the background LaunchAgent does not read shell startup files such as `.zshrc`.
+
+Resend's `onboarding@resend.dev` address is suitable for initial testing but can send only to the email associated with the Resend account. A custom `from` address must use a domain you own and have verified with Resend; an address at a third-party domain such as `googlegroups.com` cannot be used as the sender.
+
 Backups are saved in `~/Backups/Apple Notes` by default, and redundant older backups are automatically moved to the Mac Trash according to the retention policy.
 
 The installer adds `~/.local/bin` to `PATH`, so `notehold` is available from any directory in new terminal sessions.
@@ -80,15 +86,19 @@ Avoiding the Bash permission would require a separately signed executable or Mac
 
 - `notehold backup` creates a backup immediately.
 - `notehold status` shows the installed settings, service state, latest activity, and recent backups.
+- `notehold list` lists every completed backup newest-first, with its size, date, and checksum-file status.
 - `notehold version` shows the installed version.
 - `notehold uninstall` removes Notehold without removing backups or logs.
 
 Running `notehold backup` manually requires Full Disk Access for the terminal app running the command, such as Apple's built-in Terminal or a third-party app such as iTerm2. `notehold status`, `notehold version`, and `notehold uninstall` do not require terminal-app Full Disk Access. Automatic backups run through `/bin/bash`, which requires its own Full Disk Access entry.
 
+During a manual backup, Notehold prints its current stage and shows an elapsed-time spinner while creating the archive. Background backups remain quiet and write their activity to the logs.
+
 ## Documentation
 
 - [Configuration](docs/CONFIGURATION.md): destination, schedule, cleanup, and retention preview.
 - [How Notehold works and troubleshooting](docs/HOW-IT-WORKS.md): verification, failures, installed files, and logs.
+- [Configuration](docs/CONFIGURATION.md): destination, schedule, retention, and Resend email notifications.
 - [Recovering notes](docs/RECOVERY.md): offline recovery from a backup ZIP.
 - [Contributing](CONTRIBUTING.md): local testing and release instructions.
 

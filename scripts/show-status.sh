@@ -29,6 +29,7 @@ read_setting() {
 backup_dir=$(read_setting BACKUP_DIR "$HOME/Backups/Apple Notes")
 backup_interval=$(read_setting BACKUP_INTERVAL_DAYS 10)
 auto_cleanup=$(read_setting AUTO_CLEANUP true)
+email_to=$(read_setting RESEND_EMAIL_TO "")
 
 if [ -n "${STATUS_SERVICE_LOADED_FOR_TESTS+x}" ]; then
   service_loaded="$STATUS_SERVICE_LOADED_FOR_TESTS"
@@ -36,6 +37,11 @@ elif /bin/launchctl print "gui/$(/usr/bin/id -u)/$LABEL" >/dev/null 2>&1; then
   service_loaded=true
 else
   service_loaded=false
+fi
+if [ -n "$email_to" ]; then
+  echo "Email notifications: Enabled for $email_to"
+else
+  echo "Email notifications: Disabled"
 fi
 
 if [ "$service_loaded" = "true" ]; then

@@ -12,6 +12,7 @@ readonly STAGING_DIR="${TMPDIR:-/tmp}/io.github.rsheyd.notehold-staging"
 readonly SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 readonly BACKUP_INTERVAL_DAYS="${BACKUP_INTERVAL_DAYS:-10}"
 readonly AUTO_CLEANUP="${AUTO_CLEANUP:-true}"
+readonly EMAIL_SCRIPT="$SCRIPT_DIR/send-email.sh"
 
 mkdir -p "$FALLBACK_LOG_DIR"
 exec 3>&1
@@ -19,6 +20,55 @@ exec >>"$FALLBACK_LOG_FILE" 2>&1
 
 timestamp() { /bin/date '+%Y-%m-%d %H:%M:%S'; }
 log() { echo "$(timestamp) $*"; }
+
+progress() {
+  if [ -t 3 ]; then
+    /usr/bin/printf '%s\n' "$*" >&3
+  fi
+}
+
+create_archive() {
+  source_dir="$1"
+  destination="$2"
+
+  if [ ! -t 3 ]; then
+    /usr/bin/ditto -c -k --sequesterRsrc --keepParent "$source_dir" "$destination"
+    return
+  fi
+
+  started_at=$(/bin/date '+%s')
+  /usr/bin/ditto -c -k --sequesterRsrc --keepParent "$source_dir" "$destination" &
+  archive_pid=$!
+  spinner_index=0
+  while /bin/kill -0 "$archive_pid" 2>/dev/null; do
+    elapsed=$(( $(/bin/date '+%s') - started_at ))
+    case "$spinner_index" in
+      0) spinner='|' ;;
+      1) spinner='/' ;;
+      2) spinner='-' ;;
+      *) spinner='\' ;;
+    esac
+    /usr/bin/printf '\r  %s Creating archive… %ss elapsed' "$spinner" "$elapsed" >&3
+    spinner_index=$(( (spinner_index + 1) % 4 ))
+    /bin/sleep 1
+  done
+
+  set +e
+  wait "$archive_pid"
+  archive_status=$?
+  set -e
+  archive_pid=""
+  /usr/bin/printf '\r%*s\r' 60 '' >&3
+  return "$archive_status"
+}
+
+send_email_notification() {
+  subject="$1"
+  body="$2"
+  if ! "$EMAIL_SCRIPT" "$subject" "$body"; then
+    log "WARNING: email notification could not be delivered."
+  fi
+}
 
 run_retention_preview() {
   set +e
@@ -33,6 +83,7 @@ run_retention_preview() {
 notes_was_open=0
 partial_archive=""
 partial_checksum=""
+archive_pid=""
 mode="${1:---force}"
 
 if [ "$mode" != "--force" ] && [ "$mode" != "--if-stale" ] \
@@ -59,6 +110,11 @@ fi
 
 cleanup() {
   status=$?
+  if [ -n "$archive_pid" ]; then
+    /bin/kill "$archive_pid" 2>/dev/null || true
+    wait "$archive_pid" 2>/dev/null || true
+    archive_pid=""
+  fi
   if [ -n "$partial_archive" ] && [ -e "$partial_archive" ]; then
     /bin/rm -f "$partial_archive"
   fi
@@ -74,6 +130,9 @@ cleanup() {
 
   if [ "$status" -ne 0 ]; then
     log "ERROR: backup failed with status $status."
+    send_email_notification \
+      "Notehold backup failed on $(/bin/hostname -s)" \
+      "Notehold could not create a backup on $(/bin/hostname -s) at $(timestamp). The backup process exited with status $status. Run 'notehold status' and inspect the backup log for details."
   fi
   exit "$status"
 }
@@ -115,6 +174,7 @@ if [ "$mode" = "--if-stale" ]; then
 fi
 
 log "Starting Notehold backup."
+progress "Starting Notehold backup."
 
 if [ ! -d "$NOTES_DIR" ]; then
   log "ERROR: Notes data folder does not exist: $NOTES_DIR"
@@ -124,6 +184,7 @@ fi
 if /usr/bin/pgrep -x Notes >/dev/null 2>&1; then
   notes_was_open=1
   log "Quitting Notes for a consistent database snapshot."
+  progress "Temporarily closing Apple Notes for a consistent snapshot."
   /usr/bin/osascript -e 'tell application id "com.apple.Notes" to quit'
 
   attempts=0
@@ -146,9 +207,10 @@ fi
 partial_archive="$STAGING_DIR/$(/usr/bin/basename "$archive").partial"
 
 log "Creating $(/usr/bin/basename "$archive") in local staging."
-/usr/bin/ditto -c -k --sequesterRsrc --keepParent "$NOTES_DIR" "$partial_archive"
+create_archive "$NOTES_DIR" "$partial_archive"
 
 log "Testing newly created archive."
+progress "Verifying the new archive."
 /usr/bin/unzip -tqq "$partial_archive"
 /bin/mv "$partial_archive" "$archive"
 partial_archive=""
@@ -162,6 +224,10 @@ partial_checksum=""
 
 size=$(/usr/bin/du -h "$archive" | /usr/bin/awk '{print $1}')
 log "Backup complete: $(/usr/bin/basename "$archive") ($size, SHA-256 $checksum)."
+progress "Backup complete: $(/usr/bin/basename "$archive") ($size)."
+send_email_notification \
+  "Notehold backup completed on $(/bin/hostname -s)" \
+  "Notehold created $(/usr/bin/basename "$archive") at $(timestamp). Size: $size. SHA-256: $checksum."
 
 if [ "$AUTO_CLEANUP" = "true" ]; then
   if ! "$SCRIPT_DIR/manage-retention.sh" --apply; then
